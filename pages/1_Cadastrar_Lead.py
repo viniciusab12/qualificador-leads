@@ -3,6 +3,7 @@ import sqlite3
 import streamlit as st
 
 from src import criterios
+from src.ai_analyzer import analisar_lead
 from src.database import criar_tabela, salvar_lead
 from src.models import Lead
 from src.scoring import calcular_pontuacao
@@ -76,11 +77,18 @@ if enviado:
             contato_decisor=contato_decisor,
         )
 
+        # 1. Nota objetiva, calculada pelas regras
         resultado = calcular_pontuacao(lead)
         lead.nota = resultado["nota"]
         lead.classificacao = resultado["classificacao"]
         lead.justificativa = resultado["justificativa"]
 
+        # 2. Análise complementar da IA (não altera a nota)
+        with st.spinner("Gerando a análise da IA..."):
+            analise, aviso_ia = analisar_lead(lead)
+        lead.analise_ia = analise
+
+        # 3. Salva no banco
         try:
             novo_id = salvar_lead(lead)
         except sqlite3.Error as erro:
@@ -94,3 +102,12 @@ if enviado:
 
             st.subheader("Justificativa da nota")
             st.text(lead.justificativa)
+
+            st.subheader("Análise da IA")
+            if aviso_ia:
+                st.warning(aviso_ia)
+            if lead.analise_ia:
+                st.info(lead.analise_ia)
+            st.caption(
+                "A análise da IA é um complemento. A nota vem apenas das regras de pontuação."
+            )
