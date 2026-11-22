@@ -129,8 +129,21 @@ def formulario_recuperacao():
 if usuario_atual():
     st.switch_page("inicio.py")
 
-# Fundo branco só nesta página
-st.html('<style>[data-testid="stAppViewContainer"] { background: #ffffff; }</style>')
+# Fundo branco e cartão centralizado na vertical, só nesta página
+st.html(
+    """<style>
+    [data-testid="stAppViewContainer"] { background: #ffffff; }
+    [data-testid="stMainBlockContainer"] {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }
+    .st-key-cartao_login { margin-top: 0; }
+    </style>"""
+)
 
 modo = st.session_state.setdefault("modo_login", "entrar")
 textos = TEXTOS[modo]

@@ -171,6 +171,14 @@ Os cálculos do dashboard ficam em `src/metricas.py`, separados das telas, para 
 
 ## Telas
 
+Tela de login:
+
+![Tela de login](docs/img/login.png)
+
+Card da conta na barra lateral:
+
+![Card da conta](docs/img/conta.png)
+
 Cadastro com resultado da qualificação:
 
 ![Cadastro de lead](docs/img/cadastro.png)
