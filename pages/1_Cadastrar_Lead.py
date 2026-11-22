@@ -2,7 +2,7 @@ import streamlit as st
 
 from src import criterios
 from src.ai_analyzer import analisar_lead
-from src.componentes import mostrar_selo
+from src.componentes import mostrar_selo, texto_seguro_com_linhas
 from src.dados import (
     LIMITE_IA_DEMO,
     ErroBanco,
@@ -48,7 +48,7 @@ with st.form("form_lead"):
     coluna1, coluna2 = st.columns(2)
 
     with coluna1:
-        empresa = st.text_input("Empresa *")
+        empresa = st.text_input("Empresa *", max_chars=100)
         segmento = st.selectbox("Segmento *", SEGMENTOS)
         orcamento = st.number_input(
             "Orçamento (R$) *",
@@ -59,12 +59,13 @@ with st.form("form_lead"):
         )
 
     with coluna2:
-        contato = st.text_input("Nome do contato *")
+        contato = st.text_input("Nome do contato *", max_chars=100)
         necessidade = st.selectbox("Necessidade *", NECESSIDADES)
         prazo = st.selectbox("Prazo para começar *", PRAZOS)
 
     descricao = st.text_area(
         "Descrição da necessidade",
+        max_chars=1000,
         placeholder="Ex.: site com cardápio, fotos dos produtos e botão de pedido pelo WhatsApp",
     )
     contato_decisor = st.checkbox("O contato é quem decide a compra")
@@ -123,7 +124,7 @@ if enviado:
             if aviso_ia:
                 st.warning(aviso_ia)
             if lead.analise_ia:
-                st.info(lead.analise_ia)
+                st.info(texto_seguro_com_linhas(lead.analise_ia))
             st.caption(
                 "A análise da IA é um complemento. A nota vem apenas das regras de pontuação."
             )

@@ -23,6 +23,11 @@ def texto_seguro(valor):
     return "".join("\\" + letra if letra in string.punctuation else letra for letra in texto)
 
 
+def texto_seguro_com_linhas(valor):
+    """Igual a texto_seguro, mas mantém as quebras de linha (para a análise da IA)."""
+    return "  \n".join(texto_seguro(linha) for linha in str(valor).splitlines())
+
+
 def banner(titulo, texto, rotulo=""):
     """Mostra o banner em degradê no topo da página."""
     conteudo = (

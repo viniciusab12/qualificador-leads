@@ -3,7 +3,7 @@ from dataclasses import asdict
 import pandas as pd
 import streamlit as st
 
-from src.componentes import mostrar_selo, texto_seguro
+from src.componentes import mostrar_selo, texto_seguro, texto_seguro_com_linhas
 from src.dados import (
     ErroBanco,
     atualizar_status,
@@ -124,7 +124,7 @@ with st.expander("Justificativa da nota", expanded=True):
 
 with st.expander("Análise da IA"):
     if lead.analise_ia:
-        st.info(lead.analise_ia)
+        st.info(texto_seguro_com_linhas(lead.analise_ia))
     else:
         st.write("Este lead não tem análise da IA.")
 
