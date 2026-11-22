@@ -2,7 +2,7 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.database import criar_tabela, listar_leads
+from src.dados import ErroBanco, criar_tabela, listar_leads, modo_demonstracao
 from src.metricas import (
     calcular_indicadores,
     contar_por_classificacao,
@@ -14,7 +14,6 @@ from src.metricas import (
     nota_media_por_segmento,
 )
 
-st.set_page_config(page_title="Dashboard", layout="wide")
 criar_tabela()
 
 COR = "#1c5cab"  # mesma cor principal do tema
@@ -63,8 +62,14 @@ def mostrar_grafico(titulo, figura, dados):
 
 
 st.title("Dashboard")
+if modo_demonstracao():
+    st.caption("Modo demonstração: dados fictícios. Entre na sua conta para ver os seus números.")
 
-tabela = leads_para_tabela(listar_leads())
+try:
+    tabela = leads_para_tabela(listar_leads())
+except ErroBanco as erro:
+    st.error(f"Não foi possível carregar os leads. Detalhe: {erro}")
+    st.stop()
 
 if tabela.empty:
     st.info("Ainda não há leads para analisar.")

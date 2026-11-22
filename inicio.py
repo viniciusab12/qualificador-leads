@@ -3,7 +3,8 @@ import streamlit as st
 
 from src import criterios
 from src.componentes import banner
-from src.database import criar_tabela, listar_leads
+from src.auth import usuario_atual
+from src.dados import ErroBanco, criar_tabela, listar_leads
 
 criar_tabela()
 
@@ -16,8 +17,19 @@ banner(
     rotulo="Qualificador de leads · Python + IA",
 )
 
+usuario = usuario_atual()
+if usuario:
+    st.write(f"Olá, **{usuario['nome']}**. Estes são os números dos seus leads.")
+else:
+    st.write("Você está no modo demonstração, com dados fictícios. Entre para usar com os seus próprios leads.")
+    st.page_link("pages/0_Entrar.py", label="Entrar ou criar conta", icon=":material/login:")
+
 # Resumo rápido dos leads cadastrados
-leads = listar_leads()
+try:
+    leads = listar_leads()
+except ErroBanco as erro:
+    st.error(f"Não foi possível carregar os leads. Detalhe: {erro}")
+    st.stop()
 quentes = [lead for lead in leads if lead.classificacao == "Quente"]
 
 coluna1, coluna2 = st.columns(2)

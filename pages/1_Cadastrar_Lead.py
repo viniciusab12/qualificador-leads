@@ -1,11 +1,9 @@
-import sqlite3
-
 import streamlit as st
 
 from src import criterios
 from src.ai_analyzer import analisar_lead
 from src.componentes import mostrar_selo
-from src.database import criar_tabela, salvar_lead
+from src.dados import ErroBanco, criar_tabela, modo_demonstracao, salvar_lead
 from src.models import Lead
 from src.scoring import calcular_pontuacao
 
@@ -30,6 +28,12 @@ def validar(empresa, contato):
 
 st.title("Cadastrar lead")
 st.write("Preencha os dados do potencial cliente. A nota é calculada automaticamente.")
+
+if modo_demonstracao():
+    st.info(
+        "Modo demonstração: o lead vai para a base pública de exemplo. "
+        "Entre na sua conta para guardar os seus próprios leads."
+    )
 
 with st.form("form_lead"):
     coluna1, coluna2 = st.columns(2)
@@ -90,7 +94,7 @@ if enviado:
         # 3. Salva no banco
         try:
             novo_id = salvar_lead(lead)
-        except sqlite3.Error as erro:
+        except ErroBanco as erro:
             st.error(f"Não foi possível salvar o lead. Detalhe: {erro}")
         else:
             st.success(f"Lead #{novo_id} cadastrado com sucesso.")

@@ -1,23 +1,36 @@
-import sqlite3
 from dataclasses import asdict
 
 import pandas as pd
 import streamlit as st
 
 from src.componentes import mostrar_selo
-from src.database import atualizar_status, buscar_lead, criar_tabela, excluir_lead, listar_leads
+from src.dados import (
+    ErroBanco,
+    atualizar_status,
+    buscar_lead,
+    criar_tabela,
+    excluir_lead,
+    listar_leads,
+    modo_demonstracao,
+)
 from src.models import STATUS_FUNIL
 from src.scoring import formatar_reais
 
 criar_tabela()
 
 st.title("Leads cadastrados")
+if modo_demonstracao():
+    st.caption("Modo demonstração: dados fictícios. Entre na sua conta para ver os seus leads.")
 
 # Mensagem guardada antes do último recarregamento (ex.: "Status atualizado")
 if "mensagem" in st.session_state:
     st.success(st.session_state.pop("mensagem"))
 
-leads = listar_leads()
+try:
+    leads = listar_leads()
+except ErroBanco as erro:
+    st.error(f"Não foi possível carregar os leads. Detalhe: {erro}")
+    st.stop()
 
 if not leads:
     st.info("Nenhum lead cadastrado ainda.")
@@ -80,7 +93,15 @@ st.subheader("Detalhes e acompanhamento")
 
 rotulos = {linha.id: f"#{linha.id} · {linha.empresa}" for linha in filtrada.itertuples()}
 lead_id = st.selectbox("Escolha um lead", list(rotulos), format_func=rotulos.get)
-lead = buscar_lead(lead_id)
+try:
+    lead = buscar_lead(lead_id)
+except ErroBanco as erro:
+    st.error(f"Não foi possível carregar o lead. Detalhe: {erro}")
+    st.stop()
+
+if lead is None:
+    st.warning("Lead não encontrado.")
+    st.stop()
 
 coluna1, coluna2, coluna3 = st.columns(3)
 coluna1.metric("Nota", f"{lead.nota}/100")
@@ -111,7 +132,7 @@ novo_status = st.selectbox("Novo status", STATUS_FUNIL, index=posicao_atual, key
 if st.button("Salvar status"):
     try:
         atualizar_status(lead.id, novo_status)
-    except (sqlite3.Error, ValueError) as erro:
+    except (ErroBanco, ValueError) as erro:
         st.error(f"Não foi possível atualizar o status. Detalhe: {erro}")
     else:
         st.session_state["mensagem"] = f"Status do lead #{lead.id} atualizado para {novo_status}."
@@ -125,7 +146,7 @@ with st.expander("Excluir lead"):
     if st.button("Excluir lead", disabled=not confirmar, type="primary"):
         try:
             excluir_lead(lead.id)
-        except sqlite3.Error as erro:
+        except ErroBanco as erro:
             st.error(f"Não foi possível excluir o lead. Detalhe: {erro}")
         else:
             st.session_state["mensagem"] = f"Lead #{lead.id} excluído."

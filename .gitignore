@@ -3,3 +3,4 @@ __pycache__/
 .env
 data/*.db
 .pytest_cache/
+.streamlit/secrets.toml
