@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
-from src.models import Lead
+from src.models import STATUS_FUNIL, Lead
 
 # Caminho do arquivo do banco: pasta data/ na raiz do projeto
 PASTA_PROJETO = Path(__file__).resolve().parent.parent
@@ -112,10 +112,23 @@ def buscar_lead(lead_id, caminho_banco=CAMINHO_BANCO):
 
 def atualizar_status(lead_id, novo_status, caminho_banco=CAMINHO_BANCO):
     """Muda o status de um lead. Devolve True se encontrou o lead."""
+    if novo_status not in STATUS_FUNIL:
+        raise ValueError(f"Status inválido: {novo_status}. Use um destes: {STATUS_FUNIL}")
+
     conexao = conectar(caminho_banco)
     cursor = conexao.execute(
         "UPDATE leads SET status = ? WHERE id = ?", (novo_status, lead_id)
     )
+    conexao.commit()
+    encontrou = cursor.rowcount > 0
+    conexao.close()
+    return encontrou
+
+
+def excluir_lead(lead_id, caminho_banco=CAMINHO_BANCO):
+    """Apaga um lead. Devolve True se encontrou o lead."""
+    conexao = conectar(caminho_banco)
+    cursor = conexao.execute("DELETE FROM leads WHERE id = ?", (lead_id,))
     conexao.commit()
     encontrou = cursor.rowcount > 0
     conexao.close()

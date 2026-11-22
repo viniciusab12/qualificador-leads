@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 
+# Etapas do funil de vendas, na ordem em que o lead avança
+STATUS_FUNIL = ["Novo", "Em contato", "Proposta enviada", "Ganho", "Perdido"]
+
 
 @dataclass
 class Lead:

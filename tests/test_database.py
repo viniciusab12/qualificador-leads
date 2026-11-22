@@ -1,7 +1,10 @@
+import pytest
+
 from src.database import (
     atualizar_status,
     buscar_lead,
     criar_tabela,
+    excluir_lead,
     listar_leads,
     salvar_lead,
 )
@@ -64,3 +67,24 @@ def test_atualizar_status(tmp_path):
     assert atualizar_status(novo_id, "Em contato", banco) is True
     assert buscar_lead(novo_id, banco).status == "Em contato"
     assert atualizar_status(999, "Em contato", banco) is False
+
+
+def test_status_invalido_gera_erro(tmp_path):
+    banco = tmp_path / "teste.db"
+    criar_tabela(banco)
+    novo_id = salvar_lead(criar_lead_exemplo(), banco)
+
+    with pytest.raises(ValueError):
+        atualizar_status(novo_id, "Fechadoo", banco)
+
+    assert buscar_lead(novo_id, banco).status == "Novo"
+
+
+def test_excluir_lead(tmp_path):
+    banco = tmp_path / "teste.db"
+    criar_tabela(banco)
+    novo_id = salvar_lead(criar_lead_exemplo(), banco)
+
+    assert excluir_lead(novo_id, banco) is True
+    assert buscar_lead(novo_id, banco) is None
+    assert excluir_lead(novo_id, banco) is False
