@@ -82,7 +82,9 @@ def email_configurado():
 def usuario_atual():
     """Devolve {"email", "nome", "provedor"} de quem está logado, ou None."""
     if provedores_configurados() and st.user.is_logged_in:
-        email = st.user.get("email", "")
+        # O GitHub pode não informar o e-mail (quando ele é privado). Nesse caso,
+        # o identificador fixo da conta ("sub") separa os leads desse usuário.
+        email = st.user.get("email") or st.user.get("sub", "")
         nome = st.user.get("name") or st.user.get("nickname") or email
         return {"email": email, "nome": nome, "provedor": _provedor_do_login_externo()}
 

@@ -28,6 +28,11 @@
   animation: surgir 0.45s ease-out;
 }
 
+/* ===== Espaço no topo das páginas (o padrão do Streamlit é 6rem) ===== */
+[data-testid="stMainBlockContainer"] {
+  padding-top: 3rem;
+}
+
 /* ===== Títulos ===== */
 h1 {
   font-weight: 800 !important;
