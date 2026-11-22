@@ -1,6 +1,7 @@
 import streamlit as st
 
 from src.auth import (
+    SENHA_MINIMA,
     criar_conta,
     email_configurado,
     entrar_com_email,
@@ -34,7 +35,7 @@ TEXTOS = {
     },
     "criar": {
         "titulo": "Criar conta",
-        "subtitulo": "Use um e-mail válido e uma senha com pelo menos 6 caracteres.",
+        "subtitulo": "Use um e-mail válido e uma senha com pelo menos 8 caracteres.",
         "botao": "Criar conta",
         "link": "Já tem conta? Entrar",
         "outro_modo": "entrar",
@@ -62,8 +63,10 @@ def processar_login(modo):
     """
     email = st.session_state.get("login_email", "")
     senha = st.session_state.get("login_senha", "")
+    # A senha sai da memória da sessão logo depois de ser lida
+    st.session_state["login_senha"] = ""
 
-    erros = validar_credenciais(email, senha)
+    erros = validar_credenciais(email, senha, senha_nova=(modo == "criar"))
     if erros:
         st.session_state["login_erros"] = erros
         return
@@ -104,7 +107,9 @@ def formulario_recuperacao():
     st.success(f"Código enviado para {email_salvo}, se houver uma conta com esse e-mail.")
     with st.form("form_nova_senha", border=False):
         codigo = st.text_input("Código recebido por e-mail")
-        nova_senha = st.text_input("Nova senha", type="password", placeholder="Mínimo de 6 caracteres")
+        nova_senha = st.text_input(
+            "Nova senha", type="password", placeholder=f"Mínimo de {SENHA_MINIMA} caracteres"
+        )
         enviado = st.form_submit_button("Salvar nova senha", type="primary", width="stretch")
 
     if enviado:
@@ -173,7 +178,10 @@ with centro:
             with st.form("form_login", border=False):
                 st.text_input("E-mail", placeholder="voce@email.com", key="login_email")
                 st.text_input(
-                    "Senha", type="password", placeholder="Mínimo de 6 caracteres", key="login_senha"
+                    "Senha",
+                    type="password",
+                    placeholder=f"Mínimo de {SENHA_MINIMA} caracteres" if modo == "criar" else "Sua senha",
+                    key="login_senha",
                 )
                 st.form_submit_button(
                     textos["botao"],

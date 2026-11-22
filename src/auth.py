@@ -1,5 +1,7 @@
 """Login com Google e GitHub (nativo do Streamlit) e com e-mail e senha (Supabase Auth)."""
 
+import time
+
 import streamlit as st
 from supabase import create_client
 
@@ -14,6 +16,11 @@ CHAVE_TOKEN = "token_sessao"            # token atual da sessão desta aba
 CHAVE_SALVAR_COOKIE = "cookie_salvar"   # token novo que precisa ir para o cookie
 CHAVE_APAGAR_COOKIE = "cookie_apagar"   # pedido para apagar o cookie
 CHAVE_SAIU = "saiu_nesta_aba"           # impede restaurar o login depois de Sair
+CHAVE_FALHAS = "login_falhas"           # horários das últimas senhas erradas nesta sessão
+
+SENHA_MINIMA = 8          # para contas novas e senhas novas
+MAXIMO_FALHAS = 5         # senhas erradas seguidas antes de bloquear
+BLOQUEIO_SEGUNDOS = 300   # 5 minutos
 
 MENSAGENS_ERRO = {
     "invalid login credentials": "E-mail ou senha incorretos.",
@@ -149,15 +156,59 @@ def usuario_atual():
     return None
 
 
-def validar_credenciais(email, senha):
-    """Confere o formato do e-mail e o tamanho da senha. Devolve uma lista de erros."""
+def validar_credenciais(email, senha, senha_nova=True):
+    """Confere o formato do e-mail e a senha. Devolve uma lista de erros.
+
+    senha_nova=True (criar conta ou trocar senha): exige SENHA_MINIMA caracteres.
+    senha_nova=False (entrar): só exige que a senha não esteja vazia, para que
+    contas criadas quando o mínimo era 6 continuem entrando.
+    """
     erros = []
     email = email.strip()
     if "@" not in email or "." not in email.split("@")[-1]:
         erros.append("Informe um e-mail válido.")
-    if len(senha) < 6:
-        erros.append("A senha precisa ter pelo menos 6 caracteres.")
+    if senha_nova and len(senha) < SENHA_MINIMA:
+        erros.append(f"A senha precisa ter pelo menos {SENHA_MINIMA} caracteres.")
+    if not senha_nova and not senha:
+        erros.append("Informe a senha.")
     return erros
+
+
+# ---------- Limite de tentativas de login ----------
+#
+# O Supabase já limita tentativas por endereço de internet (IP). Mas no
+# Streamlit Cloud todos os logins saem do mesmo servidor, então esse limite
+# vale para todos juntos. Este limite extra conta as senhas erradas de cada
+# sessão do navegador. Abrir outra aba recomeça a contagem, então ele dificulta
+# tentar senhas em sequência, mas não substitui o limite do Supabase.
+
+def _sessao():
+    """Onde ficam os dados da sessão. Os testes trocam por um dicionário."""
+    return st.session_state
+
+
+def segundos_de_bloqueio(agora=None):
+    """Quantos segundos faltam para poder tentar de novo (0 = liberado)."""
+    agora = time.time() if agora is None else agora
+    falhas = _sessao().get(CHAVE_FALHAS, [])
+    if len(falhas) < MAXIMO_FALHAS:
+        return 0
+    restante = falhas[-1] + BLOQUEIO_SEGUNDOS - agora
+    return max(0, int(restante + 0.999))
+
+
+def registrar_falha_de_login(agora=None):
+    agora = time.time() if agora is None else agora
+    sessao = _sessao()
+    falhas = sessao.get(CHAVE_FALHAS, [])
+    # Depois que o bloqueio acaba, a contagem recomeça do zero
+    if len(falhas) >= MAXIMO_FALHAS and segundos_de_bloqueio(agora) == 0:
+        falhas = []
+    sessao[CHAVE_FALHAS] = falhas + [agora]
+
+
+def limpar_falhas_de_login():
+    _sessao().pop(CHAVE_FALHAS, None)
 
 
 def traduzir_erro(erro):
@@ -167,7 +218,7 @@ def traduzir_erro(erro):
         if trecho in texto:
             return mensagem
     if "password" in texto:
-        return "Senha recusada. Use pelo menos 6 caracteres."
+        return f"Senha recusada. Use pelo menos {SENHA_MINIMA} caracteres."
     return "Não foi possível concluir agora. Tente novamente em instantes."
 
 
@@ -178,13 +229,24 @@ def _cliente_auth():
 
 def entrar_com_email(email, senha):
     """Faz login com e-mail e senha. Devolve (sucesso, mensagem)."""
+    espera = segundos_de_bloqueio()
+    if espera:
+        minutos = max(1, round(espera / 60))
+        return False, (
+            f"Muitas tentativas com senha errada. Aguarde cerca de {minutos} minuto(s) "
+            "e tente de novo, ou use Esqueceu a senha?"
+        )
+
     try:
         resposta = _cliente_auth().auth.sign_in_with_password(
             {"email": email.strip(), "password": senha}
         )
     except Exception as erro:
+        if "invalid login credentials" in str(erro).lower():
+            registrar_falha_de_login()
         return False, traduzir_erro(erro)
 
+    limpar_falhas_de_login()
     _guardar_sessao(resposta)
     return True, ""
 
@@ -278,7 +340,8 @@ def _encerrar_sessao_no_supabase():
     try:
         cliente = _cliente_auth()
         cliente.auth.refresh_session(token)
-        cliente.auth.sign_out()
+        # "local": encerra só a sessão deste navegador, não a dos outros aparelhos
+        cliente.auth.sign_out({"scope": "local"})
     except Exception:
         pass
 

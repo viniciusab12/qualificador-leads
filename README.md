@@ -10,7 +10,7 @@ App publicado: **https://termo-leads.streamlit.app**
 
 ## Acesso
 
-O app abre em modo demonstração, sem login, com 50 leads fictícios. Nesse modo os dados ficam num SQLite temporário, compartilhado entre os visitantes, e voltam ao estado inicial quando o app reinicia.
+O app abre em modo demonstração, sem login, com 50 leads fictícios. Esses leads ficam num SQLite que o app só lê. O que cada visitante cadastra, altera ou exclui fica guardado na sessão dele e some quando a aba fecha, então um visitante não vê nem apaga o que outro fez. No modo demonstração, cada visitante tem 3 análises reais da IA; depois disso o app usa uma análise de exemplo.
 
 Quem cria uma conta passa a ter os próprios leads, salvos no Supabase (PostgreSQL) e visíveis só para essa conta. Há três formas de entrar:
 
@@ -18,7 +18,7 @@ Quem cria uma conta passa a ter os próprios leads, salvos no Supabase (PostgreS
 - conta Google;
 - conta GitHub, por meio do Auth0.
 
-A sessão continua ativa por 30 dias depois de fechar a aba. Ao clicar em Sair, o app encerra a sessão no Supabase e apaga o cookie do navegador. A barra lateral mostra a conta logada e por qual forma ela entrou.
+Senhas novas precisam de pelo menos 8 caracteres, e 5 senhas erradas seguidas bloqueiam o login por 5 minutos naquela sessão. A sessão continua ativa por 14 dias depois de fechar a aba, num cookie enviado só por HTTPS. Ao clicar em Sair, o app encerra a sessão daquele navegador no Supabase e apaga o cookie. A barra lateral mostra a conta logada e por qual forma ela entrou.
 
 A política de privacidade está em [PRIVACIDADE.md](PRIVACIDADE.md).
 
@@ -96,7 +96,7 @@ qualificador-leads/
 ├── scripts/
 │   ├── gerar_dados_ficticios.py
 │   └── testar_ia.py
-├── tests/                  # 65 testes com Pytest
+├── tests/                  # 94 testes com Pytest
 ├── supabase/schema.sql     # tabela, RLS e permissões do Supabase
 ├── assets/                 # logo e CSS
 ├── .streamlit/config.toml  # tema
@@ -142,7 +142,7 @@ python -m scripts.gerar_dados_ficticios --limpar
 pytest -v
 ```
 
-São 65 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase e o isolamento entre contas. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
+São 94 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase, o isolamento entre contas e entre visitantes da demonstração, o limite de tentativas de login e a proteção do prompt da IA contra instruções escritas nos dados do lead. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
 
 ## Decisões técnicas
 

@@ -1,3 +1,6 @@
+import pytest
+
+from src import auth
 from src.auth import (
     NOME_COOKIE,
     dono_do_login_externo,
@@ -23,10 +26,19 @@ def test_email_invalido():
     assert "Informe um e-mail válido." in erros
 
 
-def test_senha_curta():
-    erros = validar_credenciais("ana@empresa.com", "123")
+def test_senha_nova_precisa_de_8_caracteres():
+    erros = validar_credenciais("ana@empresa.com", "1234567")
 
-    assert "A senha precisa ter pelo menos 6 caracteres." in erros
+    assert "A senha precisa ter pelo menos 8 caracteres." in erros
+    assert validar_credenciais("ana@empresa.com", "12345678") == []
+
+
+def test_entrar_aceita_senha_antiga_de_6_caracteres():
+    assert validar_credenciais("ana@empresa.com", "123456", senha_nova=False) == []
+
+
+def test_entrar_exige_senha_preenchida():
+    assert "Informe a senha." in validar_credenciais("ana@empresa.com", "", senha_nova=False)
 
 
 def test_traduz_erros_conhecidos_do_supabase():
@@ -98,3 +110,69 @@ def test_google_sem_informacao_de_verificacao_e_recusado():
 def test_normalizar_email():
     assert normalizar_email("  Ana@Empresa.COM ") == "ana@empresa.com"
     assert normalizar_email(None) == ""
+
+
+# ---------- Limite de tentativas de login ----------
+
+@pytest.fixture
+def sessao(monkeypatch):
+    dicionario = {}
+    monkeypatch.setattr(auth, "_sessao", lambda: dicionario)
+    return dicionario
+
+
+def test_bloqueia_depois_de_5_senhas_erradas(sessao):
+    for segundo in range(auth.MAXIMO_FALHAS - 1):
+        auth.registrar_falha_de_login(agora=1000 + segundo)
+    assert auth.segundos_de_bloqueio(agora=1010) == 0
+
+    auth.registrar_falha_de_login(agora=1010)
+
+    assert auth.segundos_de_bloqueio(agora=1010) == auth.BLOQUEIO_SEGUNDOS
+
+
+def test_bloqueio_acaba_depois_do_tempo(sessao):
+    for _ in range(auth.MAXIMO_FALHAS):
+        auth.registrar_falha_de_login(agora=1000)
+
+    assert auth.segundos_de_bloqueio(agora=1000 + auth.BLOQUEIO_SEGUNDOS) == 0
+
+
+def test_contagem_recomeca_depois_do_bloqueio(sessao):
+    for _ in range(auth.MAXIMO_FALHAS):
+        auth.registrar_falha_de_login(agora=1000)
+    depois = 1000 + auth.BLOQUEIO_SEGUNDOS + 1
+
+    auth.registrar_falha_de_login(agora=depois)
+
+    assert auth.segundos_de_bloqueio(agora=depois) == 0
+
+
+def test_login_bloqueado_nem_chama_o_supabase(sessao, monkeypatch):
+    def proibido():
+        raise AssertionError("O Supabase não deveria ser chamado durante o bloqueio")
+
+    monkeypatch.setattr(auth, "_cliente_auth", proibido)
+    for _ in range(auth.MAXIMO_FALHAS):
+        auth.registrar_falha_de_login()
+
+    sucesso, mensagem = auth.entrar_com_email("ana@empresa.com", "senha-errada")
+
+    assert sucesso is False
+    assert "Muitas tentativas" in mensagem
+
+
+def test_senha_errada_conta_como_falha(sessao, monkeypatch):
+    class ClienteFalso:
+        class auth:
+            @staticmethod
+            def sign_in_with_password(dados):
+                raise Exception("Invalid login credentials")
+
+    monkeypatch.setattr(auth, "_cliente_auth", lambda: ClienteFalso)
+
+    sucesso, mensagem = auth.entrar_com_email("ana@empresa.com", "senha-errada")
+
+    assert sucesso is False
+    assert mensagem == "E-mail ou senha incorretos."
+    assert len(sessao[auth.CHAVE_FALHAS]) == 1

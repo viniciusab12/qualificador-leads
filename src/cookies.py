@@ -11,7 +11,7 @@ import streamlit as st
 
 from src.auth import CHAVE_APAGAR_COOKIE, CHAVE_SALVAR_COOKIE, NOME_COOKIE
 
-DIAS_LEMBRAR = 30
+DIAS_LEMBRAR = 14
 
 
 def atualizar_cookie():
@@ -28,6 +28,7 @@ def atualizar_cookie():
                 NOME_COOKIE,
                 token,
                 expires_at=datetime.now() + timedelta(days=DIAS_LEMBRAR),
+                secure=True,  # o navegador só envia o cookie por HTTPS (ou no localhost)
                 key="salvar_cookie_sessao",
             )
         return
