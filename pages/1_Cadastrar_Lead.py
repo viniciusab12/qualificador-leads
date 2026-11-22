@@ -4,11 +4,10 @@ import streamlit as st
 
 from src import criterios
 from src.ai_analyzer import analisar_lead
+from src.componentes import mostrar_selo
 from src.database import criar_tabela, salvar_lead
 from src.models import Lead
 from src.scoring import calcular_pontuacao
-
-st.set_page_config(page_title="Cadastrar Lead", layout="centered")
 
 # Garante que a tabela existe antes de qualquer coisa
 criar_tabela()
@@ -98,7 +97,8 @@ if enviado:
 
             coluna_nota, coluna_classe = st.columns(2)
             coluna_nota.metric("Nota", f"{lead.nota}/100")
-            coluna_classe.metric("Classificação", lead.classificacao)
+            with coluna_classe:
+                mostrar_selo(lead.classificacao)
 
             st.subheader("Justificativa da nota")
             st.text(lead.justificativa)

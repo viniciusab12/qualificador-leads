@@ -1,6 +1,15 @@
 import streamlit as st
 
-st.set_page_config(page_title="Qualificador de Leads", layout="wide")
+from src.estilo import aplicar_estilo
+
+st.set_page_config(
+    page_title="Termo · Qualificador de leads",
+    page_icon=":material/thermostat:",
+    layout="wide",
+)
+
+aplicar_estilo()
+st.logo("assets/logo.svg", icon_image="assets/icone.svg", size="large")
 
 pagina = st.navigation(
     [

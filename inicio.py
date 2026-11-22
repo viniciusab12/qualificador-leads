@@ -2,14 +2,18 @@ import pandas as pd
 import streamlit as st
 
 from src import criterios
+from src.componentes import banner
 from src.database import criar_tabela, listar_leads
 
 criar_tabela()
 
-st.title("Qualificador de Leads")
-st.write(
-    "Cadastre potenciais clientes e receba uma nota de 0 a 100, "
-    "com a classificação em quente, morno ou frio e a justificativa de cada ponto."
+banner(
+    titulo="Termo",
+    texto=(
+        "Cadastre potenciais clientes e receba uma nota de 0 a 100, com a classificação "
+        "em quente, morno ou frio e a justificativa de cada ponto."
+    ),
+    rotulo="Qualificador de leads · Python + IA",
 )
 
 # Resumo rápido dos leads cadastrados

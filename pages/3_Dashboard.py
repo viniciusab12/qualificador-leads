@@ -17,7 +17,7 @@ from src.metricas import (
 st.set_page_config(page_title="Dashboard", layout="wide")
 criar_tabela()
 
-COR = "#2a78d6"  # uma cor só: cada gráfico mostra uma única série
+COR = "#1c5cab"  # mesma cor principal do tema
 ROTULOS = {
     "classificacao": "Classificação",
     "quantidade": "Leads",

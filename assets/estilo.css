@@ -1,0 +1,169 @@
+/* ===== Fundo da área principal: degradê azul bem suave ===== */
+[data-testid="stAppViewContainer"] {
+  background:
+    radial-gradient(circle at 10% 0%, #e3edfa 0%, rgba(227, 237, 250, 0) 45%),
+    radial-gradient(circle at 100% 35%, #edf2f8 0%, rgba(237, 242, 248, 0) 40%),
+    #f7f9fc;
+}
+
+/* Barra do topo transparente, para o degradê aparecer por trás */
+[data-testid="stHeader"] {
+  background: transparent;
+}
+
+/* ===== Menu lateral branco, com uma linha separando do conteúdo ===== */
+[data-testid="stSidebar"] {
+  background: #ffffff;
+  border-right: 1px solid #dde2e8;
+}
+
+/* ===== Animação de entrada: a página surge subindo um pouco ===== */
+@keyframes surgir {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+[data-testid="stMainBlockContainer"],
+.block-container {
+  animation: surgir 0.45s ease-out;
+}
+
+/* ===== Títulos ===== */
+h1 {
+  font-weight: 800 !important;
+  letter-spacing: -0.02em;
+}
+
+/* ===== Cards: indicadores, formulário, gráficos e seções ===== */
+[data-testid="stMetric"],
+[data-testid="stForm"],
+[data-testid="stPlotlyChart"],
+[data-testid="stExpander"] details {
+  background: #ffffff;
+  border: 1px solid #dde2e8;
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 12px rgba(16, 24, 40, 0.06);
+}
+
+[data-testid="stMetric"] {
+  padding: 16px 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+[data-testid="stMetric"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 4px rgba(16, 24, 40, 0.06), 0 10px 24px rgba(16, 24, 40, 0.10);
+}
+
+[data-testid="stForm"] {
+  padding: 24px;
+}
+
+[data-testid="stPlotlyChart"] {
+  padding: 12px;
+}
+
+/* ===== Botões ===== */
+.stButton > button,
+[data-testid="stFormSubmitButton"] > button {
+  border-radius: 8px;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+button[kind="primary"]:hover,
+button[kind="primaryFormSubmit"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(28, 92, 171, 0.25);
+}
+
+/* ===== Acessibilidade: sem animações para quem prefere menos movimento ===== */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+
+/* ===== Banner da página inicial ===== */
+.termo-banner {
+  position: relative;
+  overflow: hidden;
+  padding: 36px 40px;
+  margin-bottom: 20px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #0d366b 0%, #1c5cab 60%, #2a78d6 100%);
+  color: #ffffff;
+  box-shadow: 0 10px 30px rgba(13, 54, 107, 0.25);
+}
+
+/* Círculos decorativos semitransparentes */
+.termo-banner::before,
+.termo-banner::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.termo-banner::after {
+  width: 260px;
+  height: 260px;
+  top: -80px;
+  right: -60px;
+}
+
+.termo-banner::before {
+  width: 180px;
+  height: 180px;
+  bottom: -100px;
+  right: 140px;
+}
+
+.termo-banner__rotulo {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.termo-banner__titulo {
+  margin: 6px 0 8px;
+  font-size: 2.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.termo-banner__texto {
+  max-width: 560px;
+  margin: 0;
+  font-size: 1.05rem;
+  opacity: 0.9;
+}
+
+/* ===== Selos de classificação ===== */
+.selo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.selo::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.selo--quente   { background: #fde8e8; color: #a32020; }
+.selo--morno    { background: #fdf3dc; color: #8a5a00; }
+.selo--frio     { background: #e3eefb; color: #1c5cab; }
+.selo--sem-nota { background: #eef0f3; color: #52514e; }

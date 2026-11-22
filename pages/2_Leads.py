@@ -4,11 +4,11 @@ from dataclasses import asdict
 import pandas as pd
 import streamlit as st
 
+from src.componentes import mostrar_selo
 from src.database import atualizar_status, buscar_lead, criar_tabela, excluir_lead, listar_leads
 from src.models import STATUS_FUNIL
 from src.scoring import formatar_reais
 
-st.set_page_config(page_title="Leads", layout="wide")
 criar_tabela()
 
 st.title("Leads cadastrados")
@@ -84,7 +84,8 @@ lead = buscar_lead(lead_id)
 
 coluna1, coluna2, coluna3 = st.columns(3)
 coluna1.metric("Nota", f"{lead.nota}/100")
-coluna2.metric("Classificação", lead.classificacao or "Sem nota")
+with coluna2:
+    mostrar_selo(lead.classificacao)
 coluna3.metric("Status", lead.status)
 
 st.write(f"**Contato:** {lead.contato} ({'decisor' if lead.contato_decisor else 'não é decisor'})")

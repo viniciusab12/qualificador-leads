@@ -54,7 +54,6 @@ DESCRICOES = [
 ORCAMENTOS = [0, 1000, 1500, 2500, 3500, 6000, 8000, 12000, 18000, 25000]
 
 # Chance de cada status (na ordem do STATUS_FUNIL) conforme a classificação.
-# Leads quentes têm mais chance de virar "Ganho"; frios, de ficar parados ou ser perdidos.
 PESOS_STATUS = {
     "Quente": [1, 2, 3, 3, 1],
     "Morno": [2, 3, 2, 1, 2],
@@ -97,17 +96,22 @@ def gerar_data():
     return momento.strftime("%Y-%m-%d %H:%M:%S")
 
 
-def main():
+def popular_banco(quantidade=QUANTIDADE):
+    """Cadastra leads fictícios no banco. Usado pelo script e pelo app."""
     random.seed(SEMENTE)
+    criar_tabela()
+    for _ in range(quantidade):
+        salvar_lead(gerar_lead(), criado_em=gerar_data())
+
+
+def main():
     criar_tabela()
 
     if "--limpar" in sys.argv:
         apagados = excluir_todos_leads()
         print(f"{apagados} leads apagados.")
 
-    for _ in range(QUANTIDADE):
-        salvar_lead(gerar_lead(), criado_em=gerar_data())
-
+    popular_banco()
     print(f"{QUANTIDADE} leads fictícios cadastrados.")
 
 
