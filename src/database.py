@@ -46,9 +46,14 @@ def criar_tabela(caminho_banco=CAMINHO_BANCO):
     conexao.close()
 
 
-def salvar_lead(lead, caminho_banco=CAMINHO_BANCO):
-    """Salva um lead novo no banco e devolve o id criado."""
-    criado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+def salvar_lead(lead, caminho_banco=CAMINHO_BANCO, criado_em=None):
+    """Salva um lead novo no banco e devolve o id criado.
+
+    criado_em: data e hora no formato "AAAA-MM-DD HH:MM:SS".
+    Se não for informado, usa o momento atual.
+    """
+    if criado_em is None:
+        criado_em = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     conexao = conectar(caminho_banco)
     cursor = conexao.execute(
@@ -133,3 +138,14 @@ def excluir_lead(lead_id, caminho_banco=CAMINHO_BANCO):
     encontrou = cursor.rowcount > 0
     conexao.close()
     return encontrou
+
+
+def excluir_todos_leads(caminho_banco=CAMINHO_BANCO):
+    """Apaga TODOS os leads e reinicia a contagem de ids. Devolve quantos foram apagados."""
+    conexao = conectar(caminho_banco)
+    cursor = conexao.execute("DELETE FROM leads")
+    apagados = cursor.rowcount
+    conexao.execute("DELETE FROM sqlite_sequence WHERE name = 'leads'")
+    conexao.commit()
+    conexao.close()
+    return apagados

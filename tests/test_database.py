@@ -5,6 +5,7 @@ from src.database import (
     buscar_lead,
     criar_tabela,
     excluir_lead,
+    excluir_todos_leads,
     listar_leads,
     salvar_lead,
 )
@@ -88,3 +89,25 @@ def test_excluir_lead(tmp_path):
     assert excluir_lead(novo_id, banco) is True
     assert buscar_lead(novo_id, banco) is None
     assert excluir_lead(novo_id, banco) is False
+
+
+def test_salvar_lead_com_data_informada(tmp_path):
+    banco = tmp_path / "teste.db"
+    criar_tabela(banco)
+
+    novo_id = salvar_lead(criar_lead_exemplo(), banco, criado_em="2026-09-15 10:30:00")
+
+    assert buscar_lead(novo_id, banco).criado_em == "2026-09-15 10:30:00"
+
+
+def test_excluir_todos_leads_reinicia_os_ids(tmp_path):
+    banco = tmp_path / "teste.db"
+    criar_tabela(banco)
+    salvar_lead(criar_lead_exemplo("Empresa A"), banco)
+    salvar_lead(criar_lead_exemplo("Empresa B"), banco)
+
+    assert excluir_todos_leads(banco) == 2
+    assert listar_leads(banco) == []
+
+    novo_id = salvar_lead(criar_lead_exemplo("Empresa C"), banco)
+    assert novo_id == 1
