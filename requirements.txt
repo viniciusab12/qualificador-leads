@@ -5,4 +5,10 @@ google-genai==3.6.1
 python-dotenv==1.2.4
 pytest==9.2.0
 Authlib==1.9.10
-supabase==2.20.0
+supabase==2.34.1
+supabase-auth==2.34.1
+postgrest==2.34.1
+realtime==2.34.1
+storage3==2.34.1
+supabase-functions==2.34.1
+httpx==0.28.1
