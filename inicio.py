@@ -2,7 +2,7 @@ import pandas as pd
 import streamlit as st
 
 from src import criterios
-from src.componentes import banner
+from src.componentes import banner, texto_seguro
 from src.auth import usuario_atual
 from src.dados import ErroBanco, criar_tabela, listar_leads
 
@@ -19,7 +19,7 @@ banner(
 
 usuario = usuario_atual()
 if usuario:
-    st.write(f"Olá, **{usuario['nome']}**. Estes são os números dos seus leads.")
+    st.write(f"Olá, **{texto_seguro(usuario['nome'])}**. Estes são os números dos seus leads.")
 else:
     st.write("Você está no modo demonstração, com dados fictícios. Entre para usar com os seus próprios leads.")
     st.page_link("pages/0_Entrar.py", label="Entrar ou criar conta", icon=":material/login:")

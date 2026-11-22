@@ -113,3 +113,15 @@ def test_prompt_contem_nota_e_proibe_alterar():
 
     assert "75/100" in prompt
     assert "Não proponha outra nota" in prompt
+
+def test_sem_permissao_nao_chama_a_api(monkeypatch):
+    def proibido(prompt):
+        raise AssertionError("A API não deveria ser chamada")
+
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "chave-de-teste")
+    monkeypatch.setattr(ai_analyzer, "chamar_gemini", proibido)
+
+    texto, aviso = ai_analyzer.analisar_lead(criar_lead_pontuado(), permitir_ia=False)
+
+    assert "demonstração" in texto
+    assert aviso == ai_analyzer.AVISO_LIMITE_DEMO

@@ -128,8 +128,21 @@ def mensagem_erro_api(erro):
     return f"A API do Gemini retornou um erro (código {erro.code}). Tente novamente mais tarde."
 
 
-def analisar_lead(lead):
-    """Devolve (texto_da_analise, aviso). O aviso é None quando tudo deu certo."""
+AVISO_LIMITE_DEMO = (
+    "Você já usou as análises com IA do modo demonstração. Esta é uma análise de exemplo. "
+    "Entre na sua conta para usar a IA em todos os leads."
+)
+
+
+def analisar_lead(lead, permitir_ia=True):
+    """Devolve (texto_da_analise, aviso). O aviso é None quando tudo deu certo.
+
+    permitir_ia=False usa a análise de exemplo sem chamar a API
+    (por exemplo, quando o visitante atingiu o limite do modo demonstração).
+    """
+    if not permitir_ia:
+        return analise_simulada(lead), AVISO_LIMITE_DEMO
+
     if not config.GEMINI_API_KEY:
         aviso = "Modo simulado: configure a GEMINI_API_KEY no arquivo .env para usar a IA."
         return analise_simulada(lead), aviso

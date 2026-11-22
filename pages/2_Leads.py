@@ -3,7 +3,7 @@ from dataclasses import asdict
 import pandas as pd
 import streamlit as st
 
-from src.componentes import mostrar_selo
+from src.componentes import mostrar_selo, texto_seguro
 from src.dados import (
     ErroBanco,
     atualizar_status,
@@ -20,7 +20,10 @@ criar_tabela()
 
 st.title("Leads cadastrados")
 if modo_demonstracao():
-    st.caption("Modo demonstração: dados fictícios. Entre na sua conta para ver os seus leads.")
+    st.caption(
+        "Modo demonstração: dados fictícios. O que você cadastrar, alterar ou excluir "
+        "fica só nesta sessão. Entre na sua conta para ver os seus leads."
+    )
 
 # Mensagem guardada antes do último recarregamento (ex.: "Status atualizado")
 if "mensagem" in st.session_state:
@@ -109,10 +112,12 @@ with coluna2:
     mostrar_selo(lead.classificacao)
 coluna3.metric("Status", lead.status)
 
-st.write(f"**Contato:** {lead.contato} ({'decisor' if lead.contato_decisor else 'não é decisor'})")
+# Textos digitados passam por texto_seguro: aparecem como foram escritos, sem virar link ou imagem
+decisor = "decisor" if lead.contato_decisor else "não é decisor"
+st.write(f"**Contato:** {texto_seguro(lead.contato)} ({decisor})")
 st.write(f"**Segmento:** {lead.segmento} · **Necessidade:** {lead.necessidade}")
 st.write(f"**Orçamento:** {formatar_reais(lead.orcamento)} · **Prazo:** {lead.prazo}")
-st.write(f"**Descrição:** {lead.descricao or 'Não informada'}")
+st.write(f"**Descrição:** {texto_seguro(lead.descricao) if lead.descricao else 'Não informada'}")
 
 with st.expander("Justificativa da nota", expanded=True):
     st.text(lead.justificativa or "Este lead não tem justificativa registrada.")

@@ -3,7 +3,15 @@ import streamlit as st
 from src import criterios
 from src.ai_analyzer import analisar_lead
 from src.componentes import mostrar_selo
-from src.dados import ErroBanco, criar_tabela, modo_demonstracao, salvar_lead
+from src.dados import (
+    LIMITE_IA_DEMO,
+    ErroBanco,
+    criar_tabela,
+    modo_demonstracao,
+    pode_usar_ia,
+    registrar_uso_ia,
+    salvar_lead,
+)
 from src.models import Lead
 from src.scoring import calcular_pontuacao
 
@@ -31,7 +39,8 @@ st.write("Preencha os dados do potencial cliente. A nota é calculada automatica
 
 if modo_demonstracao():
     st.info(
-        "Modo demonstração: o lead vai para a base pública de exemplo. "
+        "Modo demonstração: o lead fica só nesta sessão e some quando você fecha a aba. "
+        f"Até {LIMITE_IA_DEMO} cadastros recebem a análise real da IA. "
         "Entre na sua conta para guardar os seus próprios leads."
     )
 
@@ -87,8 +96,11 @@ if enviado:
         lead.justificativa = resultado["justificativa"]
 
         # 2. Análise complementar da IA (não altera a nota)
+        permitir_ia = pode_usar_ia()
         with st.spinner("Gerando a análise da IA..."):
-            analise, aviso_ia = analisar_lead(lead)
+            analise, aviso_ia = analisar_lead(lead, permitir_ia=permitir_ia)
+        if permitir_ia:
+            registrar_uso_ia()
         lead.analise_ia = analise
 
         # 3. Salva no banco

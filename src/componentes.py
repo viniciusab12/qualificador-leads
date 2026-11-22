@@ -1,6 +1,7 @@
 """Componentes visuais reutilizáveis (banner e selo de classificação)."""
 
 import html
+import string
 
 import streamlit as st
 
@@ -9,6 +10,17 @@ CLASSES_SELO = {
     "Morno": "selo--morno",
     "Frio": "selo--frio",
 }
+
+
+def texto_seguro(valor):
+    """Prepara um texto digitado pelo usuário para aparecer em st.write ou st.markdown.
+
+    Coloca uma barra antes de cada sinal de pontuação, para que o texto apareça
+    exatamente como foi digitado: [texto](link) não vira link, **x** não vira
+    negrito e ![](imagem) não carrega imagem de outro site.
+    """
+    texto = str(valor)
+    return "".join("\\" + letra if letra in string.punctuation else letra for letra in texto)
 
 
 def banner(titulo, texto, rotulo=""):
