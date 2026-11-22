@@ -47,7 +47,7 @@ pagina = st.navigation(paginas)
 if usuario:
     st.html('<style>[data-testid="stSidebarNav"] a[href$="/entrar"] { display: none; }</style>')
 
-PROVEDORES = {"google": "Google", "email": "E-mail e senha"}
+PROVEDORES = {"google": "Google", "github": "GitHub", "email": "E-mail e senha"}
 
 if usuario:
     inicial = (usuario["nome"] or usuario["email"])[:1].upper()

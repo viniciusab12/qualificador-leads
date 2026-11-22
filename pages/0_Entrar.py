@@ -4,9 +4,12 @@ from src.auth import (
     criar_conta,
     email_configurado,
     entrar_com_email,
+    entrar_com_provedor,
     enviar_codigo_recuperacao,
+    github_configurado,
     google_configurado,
     redefinir_senha,
+    usuario_atual,
     validar_credenciais,
 )
 
@@ -49,6 +52,31 @@ TEXTOS = {
 def trocar_modo(novo_modo):
     st.session_state["modo_login"] = novo_modo
     st.session_state.pop("email_recuperacao", None)
+
+
+def processar_login(modo):
+    """Roda no clique do botão, antes de a página recarregar.
+
+    Assim, quando a página recarrega, o app já sabe que a pessoa entrou
+    e mostra o menu de usuário logado na primeira tentativa.
+    """
+    email = st.session_state.get("login_email", "")
+    senha = st.session_state.get("login_senha", "")
+
+    erros = validar_credenciais(email, senha)
+    if erros:
+        st.session_state["login_erros"] = erros
+        return
+
+    if modo == "entrar":
+        sucesso, mensagem = entrar_com_email(email, senha)
+    else:
+        sucesso, mensagem = criar_conta(email, senha)
+
+    if sucesso and modo == "criar":
+        st.session_state["login_sucesso"] = mensagem
+    elif not sucesso:
+        st.session_state["login_erros"] = [mensagem]
 
 
 def formulario_recuperacao():
@@ -97,6 +125,10 @@ def formulario_recuperacao():
             st.error(mensagem)
 
 
+# Quem já entrou não precisa ver esta tela
+if usuario_atual():
+    st.switch_page("inicio.py")
+
 # Fundo branco só nesta página
 st.html('<style>[data-testid="stAppViewContainer"] { background: #ffffff; }</style>')
 
@@ -120,28 +152,23 @@ with centro:
         if modo == "recuperar" and email_configurado():
             formulario_recuperacao()
         elif email_configurado():
-            with st.form("form_login", border=False):
-                email = st.text_input("E-mail", placeholder="voce@email.com")
-                senha = st.text_input("Senha", type="password", placeholder="Mínimo de 6 caracteres")
-                enviado = st.form_submit_button(textos["botao"], type="primary", width="stretch")
+            for erro in st.session_state.pop("login_erros", []):
+                st.error(erro)
+            if "login_sucesso" in st.session_state:
+                st.success(st.session_state.pop("login_sucesso"))
 
-            if enviado:
-                erros = validar_credenciais(email, senha)
-                if erros:
-                    for erro in erros:
-                        st.error(erro)
-                elif modo == "entrar":
-                    sucesso, mensagem = entrar_com_email(email, senha)
-                    if sucesso:
-                        st.switch_page("inicio.py")
-                    else:
-                        st.error(mensagem)
-                else:
-                    sucesso, mensagem = criar_conta(email, senha)
-                    if sucesso:
-                        st.success(mensagem)
-                    else:
-                        st.error(mensagem)
+            with st.form("form_login", border=False):
+                st.text_input("E-mail", placeholder="voce@email.com", key="login_email")
+                st.text_input(
+                    "Senha", type="password", placeholder="Mínimo de 6 caracteres", key="login_senha"
+                )
+                st.form_submit_button(
+                    textos["botao"],
+                    type="primary",
+                    width="stretch",
+                    on_click=processar_login,
+                    args=(modo,),
+                )
             if modo == "entrar":
                 st.button(
                     "Esqueceu a senha?",
@@ -160,7 +187,8 @@ with centro:
             st.button(
                 "Google",
                 key="btn_google",
-                on_click=st.login,
+                on_click=entrar_com_provedor,
+                args=("google",),
                 disabled=not google_configurado(),
                 width="stretch",
             )
@@ -168,8 +196,10 @@ with centro:
             st.button(
                 "GitHub",
                 key="btn_github",
-                disabled=True,
-                help="Login com GitHub em breve.",
+                on_click=entrar_com_provedor,
+                args=("github",),
+                disabled=not github_configurado(),
+                help=None if github_configurado() else "Login com GitHub em breve.",
                 width="stretch",
             )
 

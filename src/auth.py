@@ -28,12 +28,50 @@ MENSAGENS_ERRO = {
 }
 
 
-def google_configurado():
-    """True se o login com Google estiver configurado em .streamlit/secrets.toml."""
+def provedores_configurados():
+    """Provedores de login configurados em .streamlit/secrets.toml.
+
+    Aceita os dois formatos:
+    - um provedor só: client_id direto dentro de [auth] (tratado como Google);
+    - vários: [auth.google], [auth.github] etc.
+    """
     try:
-        return "auth" in st.secrets
+        bloco = st.secrets["auth"]
     except Exception:
-        return False
+        return set()
+
+    if "client_id" in bloco:
+        return {"google"}
+    return {nome for nome in ("google", "github") if nome in bloco}
+
+
+def google_configurado():
+    return "google" in provedores_configurados()
+
+
+def github_configurado():
+    return "github" in provedores_configurados()
+
+
+def entrar_com_provedor(provedor):
+    """Abre o login do Google ou do GitHub (via Auth0)."""
+    try:
+        formato_simples = "client_id" in st.secrets["auth"]
+    except Exception:
+        formato_simples = False
+
+    if formato_simples:
+        st.login()
+    else:
+        st.login(provedor)
+
+
+def _provedor_do_login_externo():
+    """Descobre se o login externo veio do Google ou do GitHub (Auth0)."""
+    emissor = str(st.user.get("iss", ""))
+    if "auth0.com" in emissor:
+        return "github"
+    return "google"
 
 
 def email_configurado():
@@ -43,9 +81,10 @@ def email_configurado():
 
 def usuario_atual():
     """Devolve {"email", "nome", "provedor"} de quem está logado, ou None."""
-    if google_configurado() and st.user.is_logged_in:
+    if provedores_configurados() and st.user.is_logged_in:
         email = st.user.get("email", "")
-        return {"email": email, "nome": st.user.get("name") or email, "provedor": "google"}
+        nome = st.user.get("name") or st.user.get("nickname") or email
+        return {"email": email, "nome": nome, "provedor": _provedor_do_login_externo()}
 
     email = st.session_state.get(CHAVE_SESSAO)
     if email:
@@ -201,5 +240,5 @@ def sair():
     st.session_state[CHAVE_APAGAR_COOKIE] = True
     st.session_state[CHAVE_SAIU] = True
 
-    if usuario and usuario["provedor"] == "google":
+    if usuario and usuario["provedor"] in ("google", "github"):
         st.logout()
