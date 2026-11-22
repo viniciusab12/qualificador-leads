@@ -1,4 +1,4 @@
-from src.auth import traduzir_erro, validar_credenciais
+from src.auth import NOME_COOKIE, token_do_cookie, traduzir_erro, validar_credenciais
 
 
 def test_credenciais_validas():
@@ -30,3 +30,10 @@ def test_erro_desconhecido_vira_mensagem_generica():
 def test_traduz_erros_da_recuperacao_de_senha():
     assert "Código inválido" in traduzir_erro(Exception("Token has expired or is invalid"))
     assert "diferente" in traduzir_erro(Exception("New password should be different from the old password."))
+
+
+def test_token_do_cookie():
+    assert token_do_cookie({NOME_COOKIE: "abc123"}) == "abc123"
+    assert token_do_cookie({NOME_COOKIE: "  "}) is None
+    assert token_do_cookie({}) is None
+    assert token_do_cookie(None) is None

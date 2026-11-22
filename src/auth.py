@@ -7,6 +7,14 @@ from src import config
 
 CHAVE_SESSAO = "usuario_email"
 
+# Login com e-mail lembrado entre visitas: o cookie guarda um token de sessão do
+# Supabase (nunca a senha). O app grava e apaga o cookie em src/cookies.py.
+NOME_COOKIE = "termo_sessao"
+CHAVE_TOKEN = "token_sessao"            # token atual da sessão desta aba
+CHAVE_SALVAR_COOKIE = "cookie_salvar"   # token novo que precisa ir para o cookie
+CHAVE_APAGAR_COOKIE = "cookie_apagar"   # pedido para apagar o cookie
+CHAVE_SAIU = "saiu_nesta_aba"           # impede restaurar o login depois de Sair
+
 MENSAGENS_ERRO = {
     "invalid login credentials": "E-mail ou senha incorretos.",
     "email not confirmed": (
@@ -82,7 +90,7 @@ def entrar_com_email(email, senha):
     except Exception as erro:
         return False, traduzir_erro(erro)
 
-    st.session_state[CHAVE_SESSAO] = resposta.user.email
+    _guardar_sessao(resposta)
     return True, ""
 
 
@@ -124,9 +132,74 @@ def redefinir_senha(email, codigo, nova_senha):
     return True, "Senha alterada. Agora é só entrar com a nova senha."
 
 
+def _guardar_sessao(resposta):
+    """Guarda o e-mail na aba e pede para salvar o token no cookie."""
+    st.session_state[CHAVE_SESSAO] = resposta.user.email
+    st.session_state.pop(CHAVE_SAIU, None)
+    if resposta.session is not None:
+        st.session_state[CHAVE_TOKEN] = resposta.session.refresh_token
+        st.session_state[CHAVE_SALVAR_COOKIE] = resposta.session.refresh_token
+
+
+def token_do_cookie(cookies):
+    """Devolve o token salvo no cookie, ou None. Recebe um dicionário de cookies."""
+    token = (cookies or {}).get(NOME_COOKIE, "")
+    return token.strip() or None
+
+
+def restaurar_sessao(cookies):
+    """Se houver um token válido no cookie, entra de novo sem pedir a senha.
+
+    Roda no início de cada visita. O Supabase troca o token a cada uso,
+    então o token novo é salvo no cookie no lugar do antigo.
+    """
+    if st.session_state.get(CHAVE_SESSAO) or st.session_state.get(CHAVE_SAIU):
+        return
+    if not email_configurado():
+        return
+
+    token = token_do_cookie(cookies)
+    if token is None:
+        return
+
+    try:
+        resposta = _cliente_auth().auth.refresh_session(token)
+    except Exception:
+        st.session_state[CHAVE_APAGAR_COOKIE] = True
+        return
+
+    if resposta.user is None:
+        st.session_state[CHAVE_APAGAR_COOKIE] = True
+        return
+
+    _guardar_sessao(resposta)
+
+
+def _encerrar_sessao_no_supabase():
+    """Invalida o token no Supabase, para o cookie não servir mais para nada."""
+    token = st.session_state.get(CHAVE_TOKEN)
+    if not token:
+        return
+    try:
+        cliente = _cliente_auth()
+        cliente.auth.refresh_session(token)
+        cliente.auth.sign_out()
+    except Exception:
+        pass
+
+
 def sair():
     """Encerra a sessão, seja qual for a forma de login."""
     usuario = usuario_atual()
+
+    if usuario and usuario["provedor"] == "email":
+        _encerrar_sessao_no_supabase()
+
     st.session_state.pop(CHAVE_SESSAO, None)
+    st.session_state.pop(CHAVE_TOKEN, None)
+    st.session_state.pop(CHAVE_SALVAR_COOKIE, None)
+    st.session_state[CHAVE_APAGAR_COOKIE] = True
+    st.session_state[CHAVE_SAIU] = True
+
     if usuario and usuario["provedor"] == "google":
         st.logout()
