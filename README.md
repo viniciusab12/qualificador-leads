@@ -96,7 +96,8 @@ qualificador-leads/
 ├── scripts/
 │   ├── gerar_dados_ficticios.py
 │   └── testar_ia.py
-├── tests/                  # 48 testes com Pytest
+├── tests/                  # 65 testes com Pytest
+├── supabase/schema.sql     # tabela, RLS e permissões do Supabase
 ├── assets/                 # logo e CSS
 ├── .streamlit/config.toml  # tema
 └── PRIVACIDADE.md          # política de privacidade
@@ -120,7 +121,7 @@ Para usar a IA, copie o arquivo `.env.example` para `.env` e coloque a sua chave
 
 O login é opcional. Sem configuração, o app roda só no modo demonstração. Para ativá-lo:
 
-- E-mail e senha: crie um projeto no [Supabase](https://supabase.com), crie a tabela `leads` com a coluna `dono_email` e preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_KEY` no `.env`.
+- E-mail e senha: crie um projeto no [Supabase](https://supabase.com), rode o arquivo `supabase/schema.sql` no SQL Editor e preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_KEY` no `.env`.
 - Google e GitHub: crie o arquivo `.streamlit/secrets.toml` com os blocos `[auth]`, `[auth.google]` e `[auth.github]`, seguindo a [documentação do `st.login`](https://docs.streamlit.io/develop/concepts/connections/authentication). O GitHub não usa OpenID Connect, por isso o login passa por um aplicativo do Auth0 com a conexão GitHub ativada.
 
 O `.env` e o `secrets.toml` estão no `.gitignore` e nunca devem ir para o repositório.
@@ -141,7 +142,7 @@ python -m scripts.gerar_dados_ficticios --limpar
 pytest -v
 ```
 
-São 48 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase e o filtro de leads por conta. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
+São 65 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase e o isolamento entre contas. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
 
 ## Decisões técnicas
 
@@ -153,7 +154,7 @@ A chamada à API do Gemini fica isolada numa função própria. Com isso os test
 
 As chaves ficam no arquivo `.env` e no `.streamlit/secrets.toml`, que o `.gitignore` mantém fora do repositório. Na versão publicada elas ficam nos Secrets do Streamlit Community Cloud.
 
-Cada lead salvo no Supabase guarda o e-mail da conta dona, e toda consulta filtra por esse e-mail. A tabela tem RLS ativado e só a chave de serviço, que fica no servidor, tem permissão de acesso. O navegador nunca recebe essa chave.
+Cada lead salvo no Supabase guarda o dono da conta: o e-mail verificado (e-mail e senha ou Google) ou o identificador fixo da conta GitHub. Toda consulta filtra por esse dono. O app acessa o banco com a chave de serviço, que fica só no servidor e ignora o RLS. Por isso o filtro é conferido por testes que usam um banco falso: eles falham se alguma operação rodar sem o filtro ou se uma conta conseguir ler, alterar ou excluir o lead de outra. A tabela tem RLS ligado e nenhuma política para a chave pública, que não consegue acessar os leads. A configuração está em `supabase/schema.sql`.
 
 O cookie de sessão guarda apenas o refresh token do Supabase, não a senha. Ao sair, o token é revogado no Supabase.
 
