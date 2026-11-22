@@ -143,4 +143,5 @@ with direita:
     figura = px.line(dados, x="semana", y="quantidade", markers=True, labels=ROTULOS)
     figura.update_traces(line=dict(color=COR, width=2), marker=dict(color=COR, size=8))
     figura.update_yaxes(rangemode="tozero")
-    mostrar_grafico("Leads cadastrados por semana", ajustar_grafico(figura, barras=False), dados)
+    tabela_semanas = dados.assign(semana=dados["semana"].dt.strftime("%d/%m/%Y"))
+    mostrar_grafico("Leads cadastrados por semana", ajustar_grafico(figura, barras=False), tabela_semanas)
