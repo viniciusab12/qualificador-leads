@@ -98,7 +98,7 @@ def formatar_analise(dados):
 
 
 def analise_simulada(lead):
-    """Análise de exemplo, usada quando não há chave da API."""
+    """Análise de demonstração, usada nos leads fictícios e quando não há chave da API."""
     acoes = {
         "Quente": "Ligar em até 24 horas e agendar uma reunião para apresentar a proposta.",
         "Morno": "Enviar portfólio com projetos parecidos e marcar uma conversa na próxima semana.",
@@ -109,8 +109,8 @@ def analise_simulada(lead):
             f"{lead.empresa} ({lead.segmento}) busca {lead.necessidade.lower()} "
             f"e foi classificado como {lead.classificacao.lower()}."
         ),
-        "pontos_fortes": ["Análise de exemplo (modo simulado)."],
-        "riscos": ["Configure a chave do Gemini para receber uma análise real."],
+        "pontos_fortes": ["Análise de demonstração, gerada sem a IA."],
+        "riscos": ["Para ver a análise real do Gemini, cadastre um lead novo na página Cadastrar lead."],
         "proxima_acao": acoes.get(lead.classificacao, "Revisar os dados do lead."),
         "alerta": "",
     }
