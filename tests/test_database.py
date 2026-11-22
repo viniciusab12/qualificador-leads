@@ -1,6 +1,7 @@
 import pytest
 
 from src.database import (
+    abrir_conexao,
     atualizar_status,
     buscar_lead,
     criar_tabela,
@@ -111,3 +112,18 @@ def test_excluir_todos_leads_reinicia_os_ids(tmp_path):
 
     novo_id = salvar_lead(criar_lead_exemplo("Empresa C"), banco)
     assert novo_id == 1
+
+
+def test_erro_no_meio_desfaz_as_alteracoes(tmp_path):
+    banco = tmp_path / "teste.db"
+    criar_tabela(banco)
+
+    with pytest.raises(RuntimeError):
+        with abrir_conexao(banco) as conexao:
+            conexao.execute(
+                "INSERT INTO leads (empresa, contato, segmento, necessidade, orcamento, prazo, contato_decisor) "
+                "VALUES ('Temporaria', 'X', 'Varejo', 'Site institucional', 0, 'Indefinido', 0)"
+            )
+            raise RuntimeError("erro simulado no meio da operação")
+
+    assert listar_leads(banco) == []
