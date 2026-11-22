@@ -1,4 +1,4 @@
-"""Login com Google (nativo do Streamlit) e com e-mail e senha (Supabase Auth)."""
+"""Login com Google e GitHub (nativo do Streamlit) e com e-mail e senha (Supabase Auth)."""
 
 import streamlit as st
 from supabase import create_client
@@ -66,12 +66,49 @@ def entrar_com_provedor(provedor):
         st.login(provedor)
 
 
-def _provedor_do_login_externo():
-    """Descobre se o login externo veio do Google ou do GitHub (Auth0)."""
-    emissor = str(st.user.get("iss", ""))
+def provedor_do_login_externo(dados):
+    """Descobre se o login externo veio do Google ou do GitHub (Auth0).
+
+    Recebe os dados do login (o conteúdo de st.user) como dicionário.
+    """
+    emissor = str(dados.get("iss", ""))
     if "auth0.com" in emissor:
         return "github"
     return "google"
+
+
+def normalizar_email(email):
+    """Tira espaços e passa para minúsculas: Ana@Empresa.com e ana@empresa.com são o mesmo e-mail."""
+    return (email or "").strip().lower()
+
+
+def _email_verificado(dados):
+    """True só quando o provedor confirma que o e-mail foi verificado."""
+    valor = dados.get("email_verified")
+    return valor is True or str(valor).lower() == "true"
+
+
+def dono_do_login_externo(dados):
+    """Decide quem é o dono dos leads num login com Google ou GitHub.
+
+    - GitHub (via Auth0): usa sempre o identificador fixo da conta ("sub",
+      no formato "github|12345"). Ele não muda e não pode ser escolhido por
+      outra pessoa, ao contrário do e-mail.
+    - Google: usa o e-mail, mas só se o Google confirmar que ele foi verificado.
+
+    Devolve None quando não dá para confiar na identidade. Nesse caso,
+    o app não mostra leads de ninguém.
+    """
+    if provedor_do_login_externo(dados) == "github":
+        sub = str(dados.get("sub") or "").strip()
+        if sub.startswith("github|"):
+            return sub
+        return None
+
+    email = normalizar_email(dados.get("email"))
+    if email and _email_verificado(dados):
+        return email
+    return None
 
 
 def email_configurado():
@@ -79,18 +116,35 @@ def email_configurado():
     return bool(config.SUPABASE_URL and config.SUPABASE_ANON_KEY and config.SUPABASE_SERVICE_KEY)
 
 
+def login_externo_ativo():
+    """True se a pessoa entrou com Google ou GitHub (mesmo que a identidade seja recusada)."""
+    return bool(provedores_configurados()) and st.user.is_logged_in
+
+
 def usuario_atual():
-    """Devolve {"email", "nome", "provedor"} de quem está logado, ou None."""
-    if provedores_configurados() and st.user.is_logged_in:
-        # O GitHub pode não informar o e-mail (quando ele é privado). Nesse caso,
-        # o identificador fixo da conta ("sub") separa os leads desse usuário.
-        email = st.user.get("email") or st.user.get("sub", "")
-        nome = st.user.get("name") or st.user.get("nickname") or email
-        return {"email": email, "nome": nome, "provedor": _provedor_do_login_externo()}
+    """Devolve os dados de quem está logado, ou None.
+
+    "dono" é a chave que separa os leads de cada conta no banco.
+    "email" e "nome" servem só para mostrar na tela.
+    """
+    if login_externo_ativo():
+        campos = ("iss", "sub", "email", "email_verified", "name", "nickname")
+        dados = {campo: st.user.get(campo) for campo in campos}
+        dono = dono_do_login_externo(dados)
+        if dono is None:
+            return None
+        email = normalizar_email(dados.get("email"))
+        nome = dados.get("name") or dados.get("nickname") or email or "Usuário"
+        return {
+            "dono": dono,
+            "email": email,
+            "nome": nome,
+            "provedor": provedor_do_login_externo(dados),
+        }
 
     email = st.session_state.get(CHAVE_SESSAO)
     if email:
-        return {"email": email, "nome": email, "provedor": "email"}
+        return {"dono": email, "email": email, "nome": email, "provedor": "email"}
 
     return None
 
@@ -175,7 +229,7 @@ def redefinir_senha(email, codigo, nova_senha):
 
 def _guardar_sessao(resposta):
     """Guarda o e-mail na aba e pede para salvar o token no cookie."""
-    st.session_state[CHAVE_SESSAO] = resposta.user.email
+    st.session_state[CHAVE_SESSAO] = normalizar_email(resposta.user.email)
     st.session_state.pop(CHAVE_SAIU, None)
     if resposta.session is not None:
         st.session_state[CHAVE_TOKEN] = resposta.session.refresh_token
@@ -232,6 +286,7 @@ def _encerrar_sessao_no_supabase():
 def sair():
     """Encerra a sessão, seja qual for a forma de login."""
     usuario = usuario_atual()
+    externo = login_externo_ativo()
 
     if usuario and usuario["provedor"] == "email":
         _encerrar_sessao_no_supabase()
@@ -242,5 +297,6 @@ def sair():
     st.session_state[CHAVE_APAGAR_COOKIE] = True
     st.session_state[CHAVE_SAIU] = True
 
-    if usuario and usuario["provedor"] in ("google", "github"):
+    # Também sai quando o login externo foi recusado (usuario é None nesse caso)
+    if externo:
         st.logout()

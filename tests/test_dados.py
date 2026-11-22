@@ -13,7 +13,7 @@ def test_sem_login_usa_base_de_demonstracao(monkeypatch):
 
 
 def test_com_login_usa_os_leads_do_usuario(monkeypatch):
-    usuario = {"email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
+    usuario = {"dono": "ana@empresa.com", "email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
     monkeypatch.setattr(dados, "usuario_atual", lambda: usuario)
     monkeypatch.setattr(dados.supabase_db, "listar_leads", lambda email: [f"leads de {email}"])
 
@@ -25,7 +25,7 @@ def test_falha_no_banco_vira_erro_banco(monkeypatch):
     def falhar(email):
         raise ConnectionError("sem internet")
 
-    usuario = {"email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
+    usuario = {"dono": "ana@empresa.com", "email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
     monkeypatch.setattr(dados, "usuario_atual", lambda: usuario)
     monkeypatch.setattr(dados.supabase_db, "listar_leads", falhar)
 
@@ -38,3 +38,11 @@ def test_status_invalido_continua_como_value_error(monkeypatch):
 
     with pytest.raises(ValueError):
         dados.atualizar_status(1, "Fechadoo")
+
+
+def test_github_usa_o_identificador_da_conta_como_dono(monkeypatch):
+    usuario = {"dono": "github|12345", "email": "", "nome": "ana-dev", "provedor": "github"}
+    monkeypatch.setattr(dados, "usuario_atual", lambda: usuario)
+    monkeypatch.setattr(dados.supabase_db, "listar_leads", lambda dono: [f"leads de {dono}"])
+
+    assert dados.listar_leads() == ["leads de github|12345"]

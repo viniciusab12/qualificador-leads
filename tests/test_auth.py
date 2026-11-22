@@ -1,4 +1,16 @@
-from src.auth import NOME_COOKIE, token_do_cookie, traduzir_erro, validar_credenciais
+from src.auth import (
+    NOME_COOKIE,
+    dono_do_login_externo,
+    normalizar_email,
+    provedor_do_login_externo,
+    token_do_cookie,
+    traduzir_erro,
+    validar_credenciais,
+)
+
+EMISSOR_GOOGLE = "https://accounts.google.com"
+EMISSOR_AUTH0 = "https://dev-exemplo.us.auth0.com/"
+
 
 
 def test_credenciais_validas():
@@ -37,3 +49,52 @@ def test_token_do_cookie():
     assert token_do_cookie({NOME_COOKIE: "  "}) is None
     assert token_do_cookie({}) is None
     assert token_do_cookie(None) is None
+
+
+# ---------- Dono dos leads no login com Google e GitHub ----------
+
+def test_identifica_o_provedor_pelo_emissor():
+    assert provedor_do_login_externo({"iss": EMISSOR_AUTH0}) == "github"
+    assert provedor_do_login_externo({"iss": EMISSOR_GOOGLE}) == "google"
+
+
+def test_github_usa_o_sub_mesmo_com_email():
+    dados = {"iss": EMISSOR_AUTH0, "sub": "github|12345", "email": "ana@empresa.com", "email_verified": True}
+
+    assert dono_do_login_externo(dados) == "github|12345"
+
+
+def test_github_sem_email_usa_o_sub():
+    dados = {"iss": EMISSOR_AUTH0, "sub": "github|12345"}
+
+    assert dono_do_login_externo(dados) == "github|12345"
+
+
+def test_auth0_com_outra_conexao_e_recusado():
+    # Conta criada com e-mail e senha no próprio Auth0: o e-mail não pode virar dono
+    dados = {"iss": EMISSOR_AUTH0, "sub": "auth0|abc", "email": "ana@empresa.com", "email_verified": False}
+
+    assert dono_do_login_externo(dados) is None
+
+
+def test_google_com_email_verificado():
+    dados = {"iss": EMISSOR_GOOGLE, "sub": "1093", "email": "Ana@Empresa.com", "email_verified": True}
+
+    assert dono_do_login_externo(dados) == "ana@empresa.com"
+
+
+def test_google_com_email_nao_verificado_e_recusado():
+    dados = {"iss": EMISSOR_GOOGLE, "sub": "1093", "email": "ana@empresa.com", "email_verified": False}
+
+    assert dono_do_login_externo(dados) is None
+
+
+def test_google_sem_informacao_de_verificacao_e_recusado():
+    dados = {"iss": EMISSOR_GOOGLE, "sub": "1093", "email": "ana@empresa.com"}
+
+    assert dono_do_login_externo(dados) is None
+
+
+def test_normalizar_email():
+    assert normalizar_email("  Ana@Empresa.COM ") == "ana@empresa.com"
+    assert normalizar_email(None) == ""

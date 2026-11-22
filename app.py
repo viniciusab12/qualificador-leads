@@ -3,7 +3,7 @@ import html
 import streamlit as st
 
 from scripts.gerar_dados_ficticios import popular_banco
-from src.auth import restaurar_sessao, sair, usuario_atual
+from src.auth import login_externo_ativo, restaurar_sessao, sair, usuario_atual
 from src.cookies import atualizar_cookie
 from src.database import criar_tabela, listar_leads
 from src.estilo import aplicar_estilo
@@ -52,7 +52,7 @@ PROVEDORES = {"google": "Google", "github": "GitHub", "email": "E-mail e senha"}
 if usuario:
     inicial = (usuario["nome"] or usuario["email"])[:1].upper()
     linha_email = ""
-    if usuario["nome"] != usuario["email"]:
+    if usuario["email"] and usuario["nome"] != usuario["email"]:
         linha_email = f'<div class="conta-email">{html.escape(usuario["email"])}</div>'
     st.sidebar.markdown(
         '<div class="conta-usuario">'
@@ -64,6 +64,13 @@ if usuario:
         f'<div class="conta-provedor">via {PROVEDORES.get(usuario["provedor"], "")}</div>'
         "</div></div>",
         unsafe_allow_html=True,
+    )
+    st.sidebar.button("Sair", on_click=sair, icon=":material/logout:", width="stretch")
+elif login_externo_ativo():
+    # Entrou com Google ou GitHub, mas a identidade não pôde ser confirmada
+    st.sidebar.warning(
+        "Não foi possível confirmar a identidade desta conta. "
+        "Saia e entre de novo, ou use outra forma de login."
     )
     st.sidebar.button("Sair", on_click=sair, icon=":material/logout:", width="stretch")
 else:

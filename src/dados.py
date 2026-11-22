@@ -15,9 +15,13 @@ class ErroBanco(Exception):
 
 
 def email_logado():
-    """E-mail de quem está logado, ou None no modo demonstração."""
+    """Dono dos leads de quem está logado, ou None no modo demonstração.
+
+    Para e-mail e senha e para o Google, é o e-mail. Para o GitHub, é o
+    identificador fixo da conta (ex.: "github|12345").
+    """
     usuario = usuario_atual()
-    return usuario["email"] if usuario else None
+    return usuario["dono"] if usuario else None
 
 
 def modo_demonstracao():
