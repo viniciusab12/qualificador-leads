@@ -59,8 +59,10 @@ BRUNO = "github|98765"
 class ConsultaFalsa:
     """Imita o encadeamento do cliente do Supabase: .table().select().eq()...execute()."""
 
-    def __init__(self, banco):
+    def __init__(self, banco, tabela):
         self.banco = banco
+        self.tabela = tabela
+        self.ordem = None
         self.operacao = None
         self.dados = None
         self.filtros = []
@@ -87,6 +89,7 @@ class ConsultaFalsa:
         return self
 
     def order(self, coluna, desc=False):
+        self.ordem = (coluna, desc)
         return self
 
     def limit(self, quantidade):
@@ -97,18 +100,20 @@ class ConsultaFalsa:
         return all(linha.get(coluna) == valor for coluna, valor in self.filtros)
 
     def execute(self):
-        self.banco.consultas.append((self.operacao, list(self.filtros), self.dados))
+        self.banco.consultas.append((self.tabela, self.operacao, list(self.filtros), self.dados))
+        linhas = self.banco.tabelas.setdefault(self.tabela, [])
 
         if self.operacao == "insert":
             self.banco.ultimo_id += 1
             linha = {**self.dados, "id": self.banco.ultimo_id, "criado_em": "2026-11-22T12:00:00+00:00"}
-            self.banco.linhas.append(linha)
+            linhas.append(linha)
             return RespostaFalsa([linha])
 
-        encontradas = [linha for linha in self.banco.linhas if self._combina(linha)]
+        encontradas = [linha for linha in linhas if self._combina(linha)]
 
         if self.operacao == "select":
-            encontradas.sort(key=lambda linha: linha["id"], reverse=True)
+            coluna, decrescente = self.ordem or ("id", False)
+            encontradas.sort(key=lambda linha: linha[coluna], reverse=decrescente)
             if self.limite:
                 encontradas = encontradas[: self.limite]
             return RespostaFalsa([dict(linha) for linha in encontradas])
@@ -119,7 +124,7 @@ class ConsultaFalsa:
             return RespostaFalsa(encontradas)
 
         if self.operacao == "delete":
-            self.banco.linhas = [linha for linha in self.banco.linhas if linha not in encontradas]
+            self.banco.tabelas[self.tabela] = [linha for linha in linhas if linha not in encontradas]
             return RespostaFalsa(encontradas)
 
         raise AssertionError(f"Operação não prevista: {self.operacao}")
@@ -132,13 +137,17 @@ class RespostaFalsa:
 
 class BancoFalso:
     def __init__(self):
-        self.linhas = []
+        self.tabelas = {"leads": [], "criterios_conta": []}
         self.consultas = []
         self.ultimo_id = 0
 
+    @property
+    def linhas(self):
+        return self.tabelas["leads"]
+
     def table(self, nome):
-        assert nome == "leads"
-        return ConsultaFalsa(self)
+        assert nome in self.tabelas, f"Tabela inesperada: {nome}"
+        return ConsultaFalsa(self, nome)
 
 
 def lead_exemplo(empresa):
@@ -226,9 +235,18 @@ def test_toda_consulta_filtra_pelo_dono(banco):
     supabase_db.atualizar_status(id_ana, "Em contato", ANA)
     supabase_db.excluir_lead(id_ana, ANA)
 
-    assert len(banco.consultas) == 4
-    for operacao, filtros, _ in banco.consultas:
-        assert ("dono_email", ANA) in filtros, f"{operacao} rodou sem o filtro do dono"
+    supabase_db.salvar_lead(lead_exemplo("Lead novo"), ANA)
+    id_novo = id_do_lead(banco, ANA)
+    supabase_db.atualizar_campos(id_novo, {"nota": 10}, ANA)
+    supabase_db.salvar_criterios({"pesos": {}}, ANA)
+    supabase_db.buscar_criterios(ANA)
+    supabase_db.excluir_dados_da_conta(ANA)
+
+    for tabela, operacao, filtros, dados in banco.consultas:
+        if operacao == "insert":
+            assert dados["dono_email"] == ANA, f"insert em {tabela} sem o dono certo"
+        else:
+            assert ("dono_email", ANA) in filtros, f"{operacao} em {tabela} rodou sem o filtro do dono"
 
 
 def test_status_invalido_nao_chega_ao_banco(banco):
@@ -236,3 +254,57 @@ def test_status_invalido_nao_chega_ao_banco(banco):
         supabase_db.atualizar_status(1, "Fechadoo", ANA)
 
     assert banco.consultas == []
+
+
+
+# ---------- Edição de campos, regras e exclusão da conta ----------
+
+def test_atualizar_campos_nao_altera_lead_de_outra_conta(banco):
+    id_bruno = id_do_lead(banco, BRUNO)
+
+    assert supabase_db.atualizar_campos(id_bruno, {"empresa": "Invadido"}, ANA) is False
+    assert supabase_db.buscar_lead(id_bruno, BRUNO).empresa == "Padaria do Bruno"
+
+
+def test_atualizar_campos_recusa_trocar_o_dono(banco):
+    id_ana = id_do_lead(banco, ANA)
+
+    with pytest.raises(ValueError):
+        supabase_db.atualizar_campos(id_ana, {"dono_email": BRUNO}, ANA)
+
+    assert banco.consultas == []
+
+
+def test_anotacoes_e_proximo_contato_sao_gravados(banco):
+    id_ana = id_do_lead(banco, ANA)
+    anotacoes = [{"data": "2026-11-22 10:00", "texto": "Ligou pedindo proposta"}]
+
+    supabase_db.atualizar_campos(id_ana, {"anotacoes": anotacoes, "proximo_contato": "2026-11-25"}, ANA)
+
+    lead = supabase_db.buscar_lead(id_ana, ANA)
+    assert lead.anotacoes == anotacoes
+    assert lead.proximo_contato == "2026-11-25"
+
+
+def test_regras_tem_versoes_separadas_por_conta(banco):
+    assert supabase_db.buscar_criterios(ANA) is None
+
+    assert supabase_db.salvar_criterios({"limite_quente": 80}, ANA) == 1
+    assert supabase_db.salvar_criterios({"limite_quente": 75}, ANA) == 2
+    assert supabase_db.salvar_criterios({"limite_quente": 60}, BRUNO) == 1
+
+    assert supabase_db.buscar_criterios(ANA) == {"limite_quente": 75, "versao": 2}
+    assert supabase_db.buscar_criterios(BRUNO) == {"limite_quente": 60, "versao": 1}
+
+
+def test_excluir_conta_apaga_so_os_dados_da_conta(banco):
+    supabase_db.salvar_criterios({"limite_quente": 80}, ANA)
+    supabase_db.salvar_criterios({"limite_quente": 60}, BRUNO)
+
+    apagados = supabase_db.excluir_dados_da_conta(ANA)
+
+    assert apagados == 1
+    assert supabase_db.listar_leads(ANA) == []
+    assert supabase_db.buscar_criterios(ANA) is None
+    assert len(supabase_db.listar_leads(BRUNO)) == 1
+    assert supabase_db.buscar_criterios(BRUNO) is not None

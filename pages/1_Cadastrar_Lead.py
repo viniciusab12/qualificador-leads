@@ -8,14 +8,14 @@ from src.dados import (
     ErroBanco,
     modo_demonstracao,
     pode_usar_ia,
+    pontuar,
     registrar_uso_ia,
     salvar_lead,
 )
 from src.models import Lead
-from src.scoring import calcular_pontuacao
 
 # Opções das listas, puxadas das regras de pontuação
-SEGMENTOS = criterios.SEGMENTOS_ALVO + criterios.SEGMENTOS_SECUNDARIOS + ["Outro"]
+SEGMENTOS = criterios.SEGMENTOS_DISPONIVEIS
 NECESSIDADES = criterios.SERVICOS_OFERECIDOS + ["Outro"]
 PRAZOS = list(criterios.PONTOS_PRAZO.keys())
 
@@ -86,11 +86,8 @@ if enviado:
             contato_decisor=contato_decisor,
         )
 
-        # 1. Nota objetiva, calculada pelas regras
-        resultado = calcular_pontuacao(lead)
-        lead.nota = resultado["nota"]
-        lead.classificacao = resultado["classificacao"]
-        lead.justificativa = resultado["justificativa"]
+        # 1. Nota objetiva, calculada pelas regras da conta (página Critérios)
+        pontuar(lead)
 
         # 2. Análise complementar da IA (não altera a nota)
         permitir_ia = pode_usar_ia()

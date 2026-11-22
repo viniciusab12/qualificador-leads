@@ -105,3 +105,64 @@ def test_prazo_desconhecido_vale_zero():
     pontos, _ = pontuar_prazo("Ontem")
 
     assert pontos == 0
+
+# ---------- Regras personalizadas ----------
+
+from src import criterios  # noqa: E402
+
+
+def regras(**mudancas):
+    config = criterios.criterios_padrao()
+    config.update(mudancas)
+    return config
+
+
+def test_regras_padrao_dao_o_mesmo_resultado_de_antes():
+    lead = criar_lead()
+
+    assert calcular_pontuacao(lead, criterios.criterios_padrao()) == calcular_pontuacao(lead)
+
+
+def test_peso_maior_aumenta_os_pontos_na_mesma_proporcao():
+    pesos = {"orcamento": 40, "prazo": 25, "segmento": 20, "necessidade": 10, "decisor": 5}
+    lead = criar_lead(orcamento=3000)  # faixa que vale 15 de 30 no padrão
+
+    resultado = calcular_pontuacao(lead, regras(pesos=pesos, versao=2))
+
+    assert "Orçamento: 20/40" in resultado["justificativa"]
+    assert "Regras personalizadas, versão 2" in resultado["justificativa"]
+    assert resultado["criterios_versao"] == 2
+
+
+def test_peso_zero_desliga_o_criterio():
+    pesos = {"orcamento": 0, "prazo": 40, "segmento": 30, "necessidade": 20, "decisor": 10}
+
+    resultado = calcular_pontuacao(criar_lead(orcamento=50000), regras(pesos=pesos))
+
+    assert "Orçamento: 0/0" in resultado["justificativa"]
+
+
+def test_nenhum_criterio_passa_do_proprio_peso():
+    lead = criar_lead(orcamento=50000)
+    for pesos in [
+        {"orcamento": 1, "prazo": 1, "segmento": 1, "necessidade": 1, "decisor": 96},
+        {"orcamento": 33, "prazo": 33, "segmento": 1, "necessidade": 1, "decisor": 32},
+        {"orcamento": 10, "prazo": 10, "segmento": 10, "necessidade": 67, "decisor": 3},
+    ]:
+        resultado = calcular_pontuacao(lead, regras(pesos=pesos))
+        assert resultado["nota"] <= 100
+        assert resultado["nota"] == 100  # lead perfeito leva o máximo de cada critério
+
+
+def test_limites_personalizados_mudam_a_classificacao():
+    lead = criar_lead()  # 95 pontos
+
+    assert calcular_pontuacao(lead, regras(limite_quente=96, limite_morno=50))["classificacao"] == "Morno"
+
+
+def test_segmentos_personalizados():
+    lead = criar_lead(segmento="Tecnologia")
+
+    resultado = calcular_pontuacao(lead, regras(segmentos_alvo=["Tecnologia"], segmentos_secundarios=[]))
+
+    assert "Segmento: 20/20 (Tecnologia é segmento-alvo)" in resultado["justificativa"]

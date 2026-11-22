@@ -26,18 +26,20 @@ A política de privacidade está em [PRIVACIDADE.md](PRIVACIDADE.md).
 
 O cenário é o de uma empresa que vende criação de sites e sistemas para pequenas e médias empresas. Cada lead cadastrado passa por quatro etapas: validação dos campos, cálculo da nota, análise da IA e gravação no banco de dados.
 
-O app tem quatro páginas, além da tela de login:
+O app tem seis páginas, além da tela de login:
 
-- Início: resumo dos leads e explicação das regras de pontuação.
+- Início: resumo dos leads, lista dos leads para contatar hoje e as regras de pontuação em uso.
 - Cadastrar lead: formulário com validação. Ao enviar, mostra a nota, a classificação, a justificativa de cada ponto e a análise da IA.
-- Leads: tabela com filtros por empresa, classificação, segmento e status, detalhes de cada lead, troca de status no funil de vendas e exclusão.
+- Leads: tabela com filtros e exportação em CSV, detalhes de cada lead, troca de status no funil, data do próximo contato, histórico de anotações, edição dos dados (com a nota recalculada) e exclusão.
 - Dashboard: indicadores e gráficos com filtro de período.
+- Critérios: pesos de cada critério, limites de classificação, segmentos-alvo e tamanho mínimo da descrição, com prévia da nota antes de salvar.
+- Minha conta: exportação de todos os leads e exclusão da conta e dos dados.
 
 O app não envia mensagens a clientes. O acompanhamento do funil é feito à mão.
 
 ## Como a nota é calculada
 
-A nota é a soma de cinco critérios. Os pesos e as faixas ficam em `src/criterios.py`, separados da lógica de cálculo.
+A nota é a soma de cinco critérios. As regras padrão ficam em `src/criterios.py`, separadas da lógica de cálculo em `src/scoring.py`.
 
 | Critério | Pontos máximos | Como pontua |
 |---|---|---|
@@ -48,6 +50,12 @@ A nota é a soma de cinco critérios. Os pesos e as faixas ficam em `src/criteri
 | Contato decisor | 10 | 10 se o contato decide a compra, 3 se não decide |
 
 Com 70 pontos ou mais o lead é quente, de 40 a 69 é morno e abaixo de 40 é frio. A justificativa mostra a conta item por item, por exemplo `Orçamento: 25/30 (orçamento de R$ 12.000)`.
+
+### Regras por conta
+
+Na página Critérios, cada conta muda o peso dos critérios (a soma precisa dar 100), os limites de quente e morno, os segmentos-alvo e secundários e o tamanho mínimo da descrição. O peso é a pontuação máxima do critério, e os pontos de cada faixa mudam na mesma proporção: com o peso de Orçamento em 40, a faixa que valia 15 de 30 passa a valer 20 de 40.
+
+Cada alteração é salva como uma versão nova (1, 2, 3...), e cada lead guarda a versão usada na nota. Mudar as regras não altera os leads antigos. Para aplicar as regras novas neles, existe o botão Recalcular todos os leads. A configuração passa por validação em Python antes de ser salva, e a IA não participa de nenhuma parte da pontuação.
 
 ## Papel da IA
 
@@ -78,10 +86,12 @@ qualificador-leads/
 │   ├── 0_Entrar.py         # login, criação de conta e recuperação de senha
 │   ├── 1_Cadastrar_Lead.py
 │   ├── 2_Leads.py
-│   └── 3_Dashboard.py
+│   ├── 3_Dashboard.py
+│   ├── 4_Criterios.py      # regras de pontuação da conta
+│   └── 5_Conta.py          # exportar dados e excluir a conta
 ├── src/
 │   ├── models.py           # estrutura de um lead e etapas do funil
-│   ├── criterios.py        # pesos e faixas da pontuação
+│   ├── criterios.py        # regras padrão e validação das regras de cada conta
 │   ├── scoring.py          # cálculo da nota e da justificativa
 │   ├── ai_analyzer.py      # integração com o Gemini e modo simulado
 │   ├── database.py         # acesso ao SQLite (modo demonstração)
@@ -96,7 +106,7 @@ qualificador-leads/
 ├── scripts/
 │   ├── gerar_dados_ficticios.py
 │   └── testar_ia.py
-├── tests/                  # 95 testes com Pytest
+├── tests/                  # 132 testes com Pytest
 ├── supabase/schema.sql     # tabela, RLS e permissões do Supabase
 ├── assets/                 # logo e CSS
 ├── .streamlit/config.toml  # tema
@@ -142,7 +152,7 @@ python -m scripts.gerar_dados_ficticios --limpar
 pytest -v
 ```
 
-São 95 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase, o isolamento entre contas e entre visitantes da demonstração, o limite de tentativas de login e a proteção do prompt da IA contra instruções escritas nos dados do lead. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
+São 132 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a validação e o versionamento das regras de cada conta, a edição, as anotações, o próximo contato, a exportação em CSV, a exclusão da conta, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase, o isolamento entre contas e entre visitantes da demonstração, o limite de tentativas de login e a proteção do prompt da IA contra instruções escritas nos dados do lead. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
 
 ## Decisões técnicas
 
@@ -164,7 +174,7 @@ Os cálculos do dashboard ficam em `src/metricas.py`, separados das telas, para 
 
 ## O que faltaria para uso em produção
 
-- Critérios de pontuação configuráveis por empresa, em vez de fixos no código.
+- Criar critérios novos (por exemplo, número de funcionários), além de ajustar os cinco que existem.
 - Backup automático do banco, que a camada gratuita do Supabase não oferece.
 - Domínio próprio para os e-mails, no lugar de uma conta Gmail.
 - Camada paga da API do Gemini, porque na camada gratuita o conteúdo enviado pode ser usado pelo Google para melhorar os produtos.

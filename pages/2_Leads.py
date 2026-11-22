@@ -1,19 +1,43 @@
-from dataclasses import asdict
+from dataclasses import asdict, replace
+from datetime import date
 
 import pandas as pd
 import streamlit as st
 
+from src import criterios
+from src.ai_analyzer import analisar_lead
 from src.componentes import mostrar_erro, mostrar_selo, texto_seguro, texto_seguro_com_linhas
 from src.dados import (
     ErroBanco,
+    adicionar_anotacao,
+    atualizar_campos,
     atualizar_status,
     buscar_lead,
+    campos_da_pontuacao,
+    definir_proximo_contato,
     excluir_lead,
     listar_leads,
     modo_demonstracao,
+    pode_usar_ia,
+    pontuar,
+    registrar_uso_ia,
 )
+from src.metricas import leads_para_csv
 from src.models import STATUS_FUNIL
 from src.scoring import formatar_reais
+
+NECESSIDADES = criterios.SERVICOS_OFERECIDOS + ["Outro"]
+PRAZOS = list(criterios.PONTOS_PRAZO.keys())
+
+
+def opcoes_com(valor, opcoes):
+    """Garante que o valor atual do lead apareça na lista, mesmo que não esteja nas opções."""
+    return opcoes if valor in opcoes else [valor] + opcoes
+
+
+def formatar_data_br(texto_iso):
+    """'2026-11-22' -> '22/11/2026'."""
+    return date.fromisoformat(texto_iso[:10]).strftime("%d/%m/%Y")
 
 
 st.title("Leads cadastrados")
@@ -70,6 +94,7 @@ COLUNAS = {
     "nota": "Nota",
     "classificacao": "Classificação",
     "status": "Status",
+    "proximo_contato": "Próximo contato",
     "criado_em": "Cadastrado em",
 }
 
@@ -82,6 +107,16 @@ st.dataframe(
         "Nota": st.column_config.ProgressColumn(min_value=0, max_value=100, format="%d"),
         "Orçamento (R$)": st.column_config.NumberColumn(format="%.2f"),
     },
+)
+
+ids_filtrados = set(filtrada["id"])
+st.download_button(
+    "Baixar estes leads em CSV",
+    data=leads_para_csv([lead for lead in leads if lead.id in ids_filtrados]),
+    file_name=f"leads_termo_{date.today().isoformat()}.csv",
+    mime="text/csv",
+    icon=":material/download:",
+    help="Abre no Excel. Usa os filtros da barra lateral.",
 )
 
 if filtrada.empty:
@@ -140,6 +175,140 @@ if st.button("Salvar status"):
     else:
         st.session_state["mensagem"] = f"Status do lead #{lead.id} atualizado para {novo_status}."
         st.rerun()
+
+# ---------- Próximo contato ----------
+st.subheader("Próximo contato")
+
+data_atual = date.fromisoformat(lead.proximo_contato) if lead.proximo_contato else None
+nova_data = st.date_input(
+    "Data do próximo contato",
+    value=data_atual,
+    format="DD/MM/YYYY",
+    key=f"proximo_{lead.id}",
+    help="Os leads com contato marcado para hoje aparecem na página Início.",
+)
+coluna_salvar, coluna_limpar = st.columns(2)
+if coluna_salvar.button("Salvar data", key=f"salvar_data_{lead.id}", width="stretch"):
+    try:
+        definir_proximo_contato(lead.id, nova_data)
+    except (ErroBanco, ValueError) as erro:
+        mostrar_erro("Não foi possível salvar a data agora. Tente de novo.", erro)
+    else:
+        st.session_state["mensagem"] = f"Próximo contato do lead #{lead.id} atualizado."
+        st.rerun()
+if coluna_limpar.button("Limpar data", key=f"limpar_data_{lead.id}", width="stretch", disabled=data_atual is None):
+    try:
+        definir_proximo_contato(lead.id, None)
+    except (ErroBanco, ValueError) as erro:
+        mostrar_erro("Não foi possível limpar a data agora. Tente de novo.", erro)
+    else:
+        st.session_state["mensagem"] = f"Próximo contato do lead #{lead.id} removido."
+        st.rerun()
+
+# ---------- Anotações ----------
+st.subheader("Anotações")
+
+if lead.anotacoes:
+    for anotacao in reversed(lead.anotacoes):
+        quando = formatar_data_br(anotacao["data"]) + anotacao["data"][10:]
+        st.markdown(f"**{quando}** · {texto_seguro(anotacao['texto'])}")
+else:
+    st.caption("Nenhuma anotação ainda. Registre ligações, reuniões e combinados.")
+
+with st.form(f"form_anotacao_{lead.id}", clear_on_submit=True):
+    texto_anotacao = st.text_area("Nova anotação", max_chars=500, height=80)
+    if st.form_submit_button("Adicionar anotação"):
+        try:
+            adicionar_anotacao(lead.id, texto_anotacao)
+        except ValueError as erro:
+            st.warning(str(erro))
+        except ErroBanco as erro:
+            mostrar_erro("Não foi possível salvar a anotação agora. Tente de novo.", erro)
+        else:
+            st.session_state["mensagem"] = f"Anotação adicionada ao lead #{lead.id}."
+            st.rerun()
+
+# ---------- Editar dados ----------
+with st.expander("Editar dados do lead"):
+    st.caption("Ao salvar, a nota é recalculada com as regras atuais da página Critérios.")
+    with st.form(f"form_editar_{lead.id}"):
+        coluna_a, coluna_b = st.columns(2)
+        with coluna_a:
+            empresa = st.text_input("Empresa *", value=lead.empresa, max_chars=100)
+            segmento = st.selectbox(
+                "Segmento *",
+                opcoes_com(lead.segmento, criterios.SEGMENTOS_DISPONIVEIS),
+                index=opcoes_com(lead.segmento, criterios.SEGMENTOS_DISPONIVEIS).index(lead.segmento),
+            )
+            orcamento = st.number_input(
+                "Orçamento (R$) *", min_value=0.0, step=500.0, format="%.2f", value=float(lead.orcamento)
+            )
+        with coluna_b:
+            contato = st.text_input("Nome do contato *", value=lead.contato, max_chars=100)
+            necessidade = st.selectbox(
+                "Necessidade *",
+                opcoes_com(lead.necessidade, NECESSIDADES),
+                index=opcoes_com(lead.necessidade, NECESSIDADES).index(lead.necessidade),
+            )
+            prazo = st.selectbox(
+                "Prazo para começar *",
+                opcoes_com(lead.prazo, PRAZOS),
+                index=opcoes_com(lead.prazo, PRAZOS).index(lead.prazo),
+            )
+        descricao = st.text_area("Descrição da necessidade", value=lead.descricao, max_chars=1000)
+        contato_decisor = st.checkbox("O contato é quem decide a compra", value=lead.contato_decisor)
+        nova_analise = st.checkbox(
+            "Gerar uma nova análise da IA com os dados atualizados",
+            help="Sem marcar, a análise anterior é mantida.",
+        )
+        salvar_edicao = st.form_submit_button("Salvar alterações", type="primary")
+
+    if salvar_edicao:
+        if not empresa.strip() or not contato.strip():
+            st.error("Empresa e nome do contato são obrigatórios.")
+        else:
+            editado = replace(
+                lead,
+                empresa=empresa.strip(),
+                contato=contato.strip(),
+                segmento=segmento,
+                necessidade=necessidade,
+                descricao=descricao.strip(),
+                orcamento=orcamento,
+                prazo=prazo,
+                contato_decisor=contato_decisor,
+            )
+            pontuar(editado)
+            campos = {
+                "empresa": editado.empresa,
+                "contato": editado.contato,
+                "segmento": editado.segmento,
+                "necessidade": editado.necessidade,
+                "descricao": editado.descricao,
+                "orcamento": float(editado.orcamento),
+                "prazo": editado.prazo,
+                "contato_decisor": editado.contato_decisor,
+                **campos_da_pontuacao(editado),
+            }
+            aviso_ia = None
+            if nova_analise:
+                permitir_ia = pode_usar_ia()
+                with st.spinner("Gerando a análise da IA..."):
+                    analise, aviso_ia = analisar_lead(editado, permitir_ia=permitir_ia)
+                if permitir_ia:
+                    registrar_uso_ia()
+                if analise:
+                    campos["analise_ia"] = analise
+            try:
+                atualizar_campos(lead.id, campos)
+            except (ErroBanco, ValueError) as erro:
+                mostrar_erro("Não foi possível salvar as alterações agora. Tente de novo.", erro)
+            else:
+                mensagem = f"Lead #{lead.id} atualizado. Nota: {editado.nota}/100 ({editado.classificacao})."
+                if aviso_ia:
+                    mensagem += f" Aviso da IA: {aviso_ia}"
+                st.session_state["mensagem"] = mensagem
+                st.rerun()
 
 # ---------- Excluir ----------
 with st.expander("Excluir lead"):

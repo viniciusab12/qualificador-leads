@@ -81,3 +81,38 @@ def test_leads_por_semana():
 
 def test_leads_para_tabela_sem_leads():
     assert leads_para_tabela([]).empty
+
+def test_csv_abre_no_excel_em_portugues():
+    from src.metricas import leads_para_csv
+
+    from src.models import Lead
+
+    lead = Lead(
+        empresa="Padaria Vida",
+        contato="Ana",
+        segmento="Alimentação",
+        necessidade="Site institucional",
+        descricao="Site com cardápio",
+        orcamento=2500.5,
+        prazo="Até 1 mês",
+        contato_decisor=True,
+        nota=80,
+        classificacao="Quente",
+        id=1,
+    )
+    conteudo = leads_para_csv([lead]).decode("utf-8-sig")
+    cabecalho, primeira_linha = conteudo.splitlines()[:2]
+
+    assert cabecalho.startswith("ID;Empresa;Contato;Segmento")
+    assert "Próximo contato" in cabecalho
+    assert ";Sim;" in primeira_linha
+    assert "2500,5" in primeira_linha  # vírgula nos decimais
+
+
+def test_csv_sem_leads_tem_so_o_cabecalho():
+    from src.metricas import leads_para_csv
+
+    conteudo = leads_para_csv([]).decode("utf-8-sig")
+
+    assert conteudo.strip().startswith("ID;Empresa")
+    assert len(conteudo.strip().splitlines()) == 1

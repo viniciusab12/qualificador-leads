@@ -32,13 +32,16 @@ restaurar_sessao(st.context.cookies)
 usuario = usuario_atual()
 atualizar_cookie()
 
-# A página Entrar fica sempre registrada, para o login funcionar na primeira tentativa.
-# Para quem já entrou, ela só some do menu (CSS abaixo) e redireciona ao Início.
+# As páginas Entrar e Minha conta ficam sempre registradas, para o login funcionar
+# na primeira tentativa. Cada uma só some do menu (CSS abaixo) quando não faz sentido:
+# Entrar para quem já entrou, Minha conta para quem não entrou.
 paginas = [
     st.Page("inicio.py", title="Início", icon=":material/home:", default=True),
     st.Page("pages/1_Cadastrar_Lead.py", title="Cadastrar lead", icon=":material/person_add:"),
     st.Page("pages/2_Leads.py", title="Leads", icon=":material/list:"),
     st.Page("pages/3_Dashboard.py", title="Dashboard", icon=":material/bar_chart:"),
+    st.Page("pages/4_Criterios.py", title="Critérios", icon=":material/tune:", url_path="criterios"),
+    st.Page("pages/5_Conta.py", title="Minha conta", icon=":material/account_circle:", url_path="conta"),
     st.Page("pages/0_Entrar.py", title="Entrar", icon=":material/login:", url_path="entrar"),
 ]
 
@@ -46,6 +49,8 @@ pagina = st.navigation(paginas)
 
 if usuario:
     st.html('<style>[data-testid="stSidebarNav"] a[href$="/entrar"] { display: none; }</style>')
+else:
+    st.html('<style>[data-testid="stSidebarNav"] a[href$="/conta"] { display: none; }</style>')
 
 PROVEDORES = {"google": "Google", "github": "GitHub", "email": "E-mail e senha"}
 

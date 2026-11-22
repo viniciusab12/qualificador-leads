@@ -92,3 +92,36 @@ def leads_por_semana(tabela):
     """Quantidade de leads cadastrados em cada semana."""
     semanal = tabela.set_index("criado_em").resample("W")["id"].count()
     return semanal.rename_axis("semana").reset_index(name="quantidade")
+
+COLUNAS_CSV = {
+    "id": "ID",
+    "empresa": "Empresa",
+    "contato": "Contato",
+    "segmento": "Segmento",
+    "necessidade": "Necessidade",
+    "descricao": "Descrição",
+    "orcamento": "Orçamento (R$)",
+    "prazo": "Prazo",
+    "contato_decisor": "Contato decisor",
+    "nota": "Nota",
+    "classificacao": "Classificação",
+    "status": "Status",
+    "proximo_contato": "Próximo contato",
+    "criado_em": "Cadastrado em",
+    "justificativa": "Justificativa",
+}
+
+
+def leads_para_csv(leads):
+    """Gera o arquivo CSV dos leads, pronto para abrir no Excel em português.
+
+    Usa ponto e vírgula entre as colunas e vírgula nos decimais (padrão do Excel
+    no Brasil) e a codificação utf-8-sig, para os acentos aparecerem certos.
+    """
+    if leads:
+        tabela = pd.DataFrame([asdict(lead) for lead in leads])[list(COLUNAS_CSV)]
+    else:
+        tabela = pd.DataFrame(columns=list(COLUNAS_CSV))
+    tabela["contato_decisor"] = tabela["contato_decisor"].map({True: "Sim", False: "Não"})
+    tabela = tabela.rename(columns=COLUNAS_CSV)
+    return tabela.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")

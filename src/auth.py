@@ -8,6 +8,7 @@ from supabase import create_client
 from src import config
 
 CHAVE_SESSAO = "usuario_email"
+CHAVE_ID_USUARIO = "usuario_id"         # id do cadastro no Supabase Auth (login com e-mail)
 
 # Login com e-mail lembrado entre visitas: o cookie guarda um token de sessão do
 # Supabase (nunca a senha). O app grava e apaga o cookie em src/cookies.py.
@@ -151,7 +152,13 @@ def usuario_atual():
 
     email = st.session_state.get(CHAVE_SESSAO)
     if email:
-        return {"dono": email, "email": email, "nome": email, "provedor": "email"}
+        return {
+            "dono": email,
+            "email": email,
+            "nome": email,
+            "provedor": "email",
+            "id": st.session_state.get(CHAVE_ID_USUARIO),
+        }
 
     return None
 
@@ -292,6 +299,7 @@ def redefinir_senha(email, codigo, nova_senha):
 def _guardar_sessao(resposta):
     """Guarda o e-mail na aba e pede para salvar o token no cookie."""
     st.session_state[CHAVE_SESSAO] = normalizar_email(resposta.user.email)
+    st.session_state[CHAVE_ID_USUARIO] = resposta.user.id
     st.session_state.pop(CHAVE_SAIU, None)
     if resposta.session is not None:
         st.session_state[CHAVE_TOKEN] = resposta.session.refresh_token
@@ -355,6 +363,7 @@ def sair():
         _encerrar_sessao_no_supabase()
 
     st.session_state.pop(CHAVE_SESSAO, None)
+    st.session_state.pop(CHAVE_ID_USUARIO, None)
     st.session_state.pop(CHAVE_TOKEN, None)
     st.session_state.pop(CHAVE_SALVAR_COOKIE, None)
     st.session_state[CHAVE_APAGAR_COOKIE] = True

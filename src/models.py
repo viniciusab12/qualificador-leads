@@ -1,7 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 # Etapas do funil de vendas, na ordem em que o lead avança
 STATUS_FUNIL = ["Novo", "Em contato", "Proposta enviada", "Ganho", "Perdido"]
+
+# Etapas em que o lead ainda está em negociação
+STATUS_EM_ABERTO = ["Novo", "Em contato", "Proposta enviada"]
 
 
 @dataclass
@@ -25,4 +28,12 @@ class Lead:
     analise_ia: str = ""
     status: str = "Novo"
     criado_em: str = ""
+
+    # Versão das regras de pontuação usada na nota (0 = regras padrão)
+    criterios_versao: int = 0
+
+    # Acompanhamento: anotações [{"data": "...", "texto": "..."}] e data do próximo contato (AAAA-MM-DD)
+    anotacoes: list = field(default_factory=list)
+    proximo_contato: str = ""
+
     id: int | None = None
