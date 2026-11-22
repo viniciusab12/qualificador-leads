@@ -3,12 +3,11 @@ from dataclasses import asdict
 import pandas as pd
 import streamlit as st
 
-from src.componentes import mostrar_selo, texto_seguro, texto_seguro_com_linhas
+from src.componentes import mostrar_erro, mostrar_selo, texto_seguro, texto_seguro_com_linhas
 from src.dados import (
     ErroBanco,
     atualizar_status,
     buscar_lead,
-    criar_tabela,
     excluir_lead,
     listar_leads,
     modo_demonstracao,
@@ -16,7 +15,6 @@ from src.dados import (
 from src.models import STATUS_FUNIL
 from src.scoring import formatar_reais
 
-criar_tabela()
 
 st.title("Leads cadastrados")
 if modo_demonstracao():
@@ -32,7 +30,7 @@ if "mensagem" in st.session_state:
 try:
     leads = listar_leads()
 except ErroBanco as erro:
-    st.error(f"Não foi possível carregar os leads. Detalhe: {erro}")
+    mostrar_erro("Não foi possível carregar os leads agora. Tente de novo em alguns instantes. Se continuar, recarregue a página.", erro)
     st.stop()
 
 if not leads:
@@ -99,7 +97,7 @@ lead_id = st.selectbox("Escolha um lead", list(rotulos), format_func=rotulos.get
 try:
     lead = buscar_lead(lead_id)
 except ErroBanco as erro:
-    st.error(f"Não foi possível carregar o lead. Detalhe: {erro}")
+    mostrar_erro("Não foi possível abrir este lead agora. Tente de novo em alguns instantes. Se continuar, recarregue a página.", erro)
     st.stop()
 
 if lead is None:
@@ -138,7 +136,7 @@ if st.button("Salvar status"):
     try:
         atualizar_status(lead.id, novo_status)
     except (ErroBanco, ValueError) as erro:
-        st.error(f"Não foi possível atualizar o status. Detalhe: {erro}")
+        mostrar_erro("Não foi possível atualizar o status agora. Tente de novo.", erro)
     else:
         st.session_state["mensagem"] = f"Status do lead #{lead.id} atualizado para {novo_status}."
         st.rerun()
@@ -152,7 +150,7 @@ with st.expander("Excluir lead"):
         try:
             excluir_lead(lead.id)
         except ErroBanco as erro:
-            st.error(f"Não foi possível excluir o lead. Detalhe: {erro}")
+            mostrar_erro("Não foi possível excluir o lead agora. Tente de novo.", erro)
         else:
             st.session_state["mensagem"] = f"Lead #{lead.id} excluído."
             st.rerun()

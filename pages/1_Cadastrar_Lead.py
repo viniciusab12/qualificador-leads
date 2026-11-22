@@ -2,11 +2,10 @@ import streamlit as st
 
 from src import criterios
 from src.ai_analyzer import analisar_lead
-from src.componentes import mostrar_selo, texto_seguro_com_linhas
+from src.componentes import mostrar_erro, mostrar_selo, texto_seguro_com_linhas
 from src.dados import (
     LIMITE_IA_DEMO,
     ErroBanco,
-    criar_tabela,
     modo_demonstracao,
     pode_usar_ia,
     registrar_uso_ia,
@@ -14,9 +13,6 @@ from src.dados import (
 )
 from src.models import Lead
 from src.scoring import calcular_pontuacao
-
-# Garante que a tabela existe antes de qualquer coisa
-criar_tabela()
 
 # Opções das listas, puxadas das regras de pontuação
 SEGMENTOS = criterios.SEGMENTOS_ALVO + criterios.SEGMENTOS_SECUNDARIOS + ["Outro"]
@@ -108,7 +104,7 @@ if enviado:
         try:
             novo_id = salvar_lead(lead)
         except ErroBanco as erro:
-            st.error(f"Não foi possível salvar o lead. Detalhe: {erro}")
+            mostrar_erro("Não foi possível salvar o lead agora. Tente de novo em alguns instantes.", erro)
         else:
             st.success(f"Lead #{novo_id} cadastrado com sucesso.")
 

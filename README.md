@@ -96,7 +96,7 @@ qualificador-leads/
 ├── scripts/
 │   ├── gerar_dados_ficticios.py
 │   └── testar_ia.py
-├── tests/                  # 94 testes com Pytest
+├── tests/                  # 95 testes com Pytest
 ├── supabase/schema.sql     # tabela, RLS e permissões do Supabase
 ├── assets/                 # logo e CSS
 ├── .streamlit/config.toml  # tema
@@ -142,7 +142,7 @@ python -m scripts.gerar_dados_ficticios --limpar
 pytest -v
 ```
 
-São 94 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase, o isolamento entre contas e entre visitantes da demonstração, o limite de tentativas de login e a proteção do prompt da IA contra instruções escritas nos dados do lead. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
+São 95 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase, o isolamento entre contas e entre visitantes da demonstração, o limite de tentativas de login e a proteção do prompt da IA contra instruções escritas nos dados do lead. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
 
 ## Decisões técnicas
 

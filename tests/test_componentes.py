@@ -21,3 +21,15 @@ def test_texto_com_linhas_mantem_as_quebras():
     texto = texto_seguro_com_linhas("Resumo: ok\n- [link](x)")
 
     assert texto == "Resumo\\: ok  \n\\- \\[link\\]\\(x\\)"
+
+
+def test_erro_tecnico_nao_aparece_na_tela(monkeypatch, caplog):
+    from src import componentes
+
+    mostrado = []
+    monkeypatch.setattr(componentes.st, "error", mostrado.append)
+
+    componentes.mostrar_erro("Não foi possível carregar os leads agora.", ValueError("tabela leads: coluna x"))
+
+    assert mostrado == ["Não foi possível carregar os leads agora."]
+    assert "coluna x" in caplog.text

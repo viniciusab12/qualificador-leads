@@ -2,11 +2,10 @@ import pandas as pd
 import streamlit as st
 
 from src import criterios
-from src.componentes import banner, texto_seguro
+from src.componentes import banner, mostrar_erro, texto_seguro
 from src.auth import usuario_atual
-from src.dados import ErroBanco, criar_tabela, listar_leads
+from src.dados import ErroBanco, listar_leads
 
-criar_tabela()
 
 banner(
     titulo="Termo",
@@ -28,7 +27,7 @@ else:
 try:
     leads = listar_leads()
 except ErroBanco as erro:
-    st.error(f"Não foi possível carregar os leads. Detalhe: {erro}")
+    mostrar_erro("Não foi possível carregar os leads agora. Tente de novo em alguns instantes. Se continuar, recarregue a página.", erro)
     st.stop()
 quentes = [lead for lead in leads if lead.classificacao == "Quente"]
 

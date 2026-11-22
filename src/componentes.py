@@ -1,15 +1,30 @@
 """Componentes visuais reutilizáveis (banner e selo de classificação)."""
 
 import html
+import logging
 import string
 
 import streamlit as st
+
+# Registro de erros: aparece no terminal (local) e em "Manage app" → logs (Streamlit Cloud)
+registro = logging.getLogger("termo")
 
 CLASSES_SELO = {
     "Quente": "selo--quente",
     "Morno": "selo--morno",
     "Frio": "selo--frio",
 }
+
+
+def mostrar_erro(mensagem, erro=None):
+    """Mostra uma frase simples para o usuário e guarda o erro técnico no registro.
+
+    O detalhe técnico (nome de tabela, código do servidor, etc.) não aparece na
+    tela: ele não ajuda quem está usando e pode revelar como o sistema é feito.
+    """
+    st.error(mensagem)
+    if erro is not None:
+        registro.error("%s | %r", mensagem, erro)
 
 
 def texto_seguro(valor):

@@ -5,6 +5,7 @@ A IA apenas comenta o lead: ela não altera a nota.
 """
 
 import json
+import logging
 import re
 
 from google import genai
@@ -33,6 +34,8 @@ FORMATO_RESPOSTA = {
     },
     "required": CAMPOS_OBRIGATORIOS,
 }
+
+registro = logging.getLogger("termo")
 
 INICIO_DADOS = "<dados_do_lead>"
 FIM_DADOS = "</dados_do_lead>"
@@ -229,7 +232,7 @@ def analisar_lead(lead, permitir_ia=True):
     except ValueError:
         return "", "A IA respondeu fora do formato esperado. O lead foi salvo sem a análise."
     except Exception as erro:
-        print(f"Erro inesperado ao chamar a IA: {erro!r}")
+        registro.error("Erro inesperado ao chamar a IA: %r", erro)
         return "", "Não foi possível conectar à IA. Verifique a internet e tente novamente."
 
     return formatar_analise(dados), None

@@ -2,7 +2,8 @@ import pandas as pd
 import plotly.express as px
 import streamlit as st
 
-from src.dados import ErroBanco, criar_tabela, listar_leads, modo_demonstracao
+from src.componentes import mostrar_erro
+from src.dados import ErroBanco, listar_leads, modo_demonstracao
 from src.metricas import (
     calcular_indicadores,
     contar_por_classificacao,
@@ -14,7 +15,6 @@ from src.metricas import (
     nota_media_por_segmento,
 )
 
-criar_tabela()
 
 COR = "#1c5cab"  # mesma cor principal do tema
 ROTULOS = {
@@ -68,7 +68,7 @@ if modo_demonstracao():
 try:
     tabela = leads_para_tabela(listar_leads())
 except ErroBanco as erro:
-    st.error(f"Não foi possível carregar os leads. Detalhe: {erro}")
+    mostrar_erro("Não foi possível carregar os leads agora. Tente de novo em alguns instantes. Se continuar, recarregue a página.", erro)
     st.stop()
 
 if tabela.empty:
