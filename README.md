@@ -6,13 +6,27 @@ App publicado: **https://termo-leads.streamlit.app**
 
 ![Página inicial do Termo](docs/img/inicio.png)
 
-> A versão publicada usa apenas dados fictícios. Não digite dados reais de pessoas ou empresas.
+> Use apenas dados fictícios. Não digite dados reais de pessoas ou empresas.
+
+## Acesso
+
+O app abre em modo demonstração, sem login, com 50 leads fictícios. Nesse modo os dados ficam num SQLite temporário, compartilhado entre os visitantes, e voltam ao estado inicial quando o app reinicia.
+
+Quem cria uma conta passa a ter os próprios leads, salvos no Supabase (PostgreSQL) e visíveis só para essa conta. Há três formas de entrar:
+
+- e-mail e senha, com confirmação por e-mail e recuperação de senha por código de 6 dígitos;
+- conta Google;
+- conta GitHub, por meio do Auth0.
+
+A sessão continua ativa por 30 dias depois de fechar a aba. Ao clicar em Sair, o app encerra a sessão no Supabase e apaga o cookie do navegador. A barra lateral mostra a conta logada e por qual forma ela entrou.
+
+A política de privacidade está em [PRIVACIDADE.md](PRIVACIDADE.md).
 
 ## O que o app faz
 
 O cenário é o de uma empresa que vende criação de sites e sistemas para pequenas e médias empresas. Cada lead cadastrado passa por quatro etapas: validação dos campos, cálculo da nota, análise da IA e gravação no banco de dados.
 
-O app tem quatro páginas:
+O app tem quatro páginas, além da tela de login:
 
 - Início: resumo dos leads e explicação das regras de pontuação.
 - Cadastrar lead: formulário com validação. Ao enviar, mostra a nota, a classificação, a justificativa de cada ponto e a análise da IA.
@@ -45,7 +59,9 @@ A resposta vem em JSON e passa por validação antes de ser usada. Se a IA falha
 
 - Python 3.13
 - Streamlit (interface)
-- SQLite (banco de dados)
+- SQLite (banco do modo demonstração)
+- Supabase: PostgreSQL para os leads de cada conta e autenticação por e-mail e senha
+- Login com Google e GitHub pelo `st.login` do Streamlit (OpenID Connect), com o Auth0 como intermediário para o GitHub
 - Pandas (cálculos do dashboard)
 - Plotly (gráficos)
 - Google Gemini, pela biblioteca `google-genai` (análise complementar)
@@ -56,9 +72,10 @@ A resposta vem em JSON e passa por validação antes de ser usada. Se a IA falha
 
 ```
 qualificador-leads/
-├── app.py                  # ponto de entrada: menu, estilo e dados de demonstração
+├── app.py                  # ponto de entrada: menu, sessão, card da conta e dados de demonstração
 ├── inicio.py               # página inicial
 ├── pages/
+│   ├── 0_Entrar.py         # login, criação de conta e recuperação de senha
 │   ├── 1_Cadastrar_Lead.py
 │   ├── 2_Leads.py
 │   └── 3_Dashboard.py
@@ -67,17 +84,22 @@ qualificador-leads/
 │   ├── criterios.py        # pesos e faixas da pontuação
 │   ├── scoring.py          # cálculo da nota e da justificativa
 │   ├── ai_analyzer.py      # integração com o Gemini e modo simulado
-│   ├── database.py         # acesso ao SQLite
+│   ├── database.py         # acesso ao SQLite (modo demonstração)
+│   ├── supabase_db.py      # acesso aos leads de cada conta no Supabase
+│   ├── dados.py            # escolhe o banco conforme o usuário está logado ou não
+│   ├── auth.py             # login, cadastro, recuperação de senha e sessão
+│   ├── cookies.py          # cookie que mantém a sessão depois de fechar a aba
 │   ├── metricas.py         # cálculos do dashboard
-│   ├── config.py           # leitura da chave e do modelo
+│   ├── config.py           # leitura das chaves do Gemini e do Supabase
 │   ├── estilo.py           # aplica o CSS
 │   └── componentes.py      # banner e selos de classificação
 ├── scripts/
 │   ├── gerar_dados_ficticios.py
 │   └── testar_ia.py
-├── tests/                  # 34 testes com Pytest
+├── tests/                  # 48 testes com Pytest
 ├── assets/                 # logo e CSS
-└── .streamlit/config.toml  # tema
+├── .streamlit/config.toml  # tema
+└── PRIVACIDADE.md          # política de privacidade
 ```
 
 ## Como rodar no seu computador
@@ -94,7 +116,14 @@ pip install -r requirements.txt
 
 No macOS ou Linux, ative o ambiente com `source .venv/bin/activate`.
 
-Para usar a IA, copie o arquivo `.env.example` para `.env` e coloque a sua chave, criada no [Google AI Studio](https://aistudio.google.com/apikey). Sem o `.env`, o app funciona em modo simulado.
+Para usar a IA, copie o arquivo `.env.example` para `.env` e coloque a sua chave, criada no [Google AI Studio](https://aistudio.google.com/apikey). Sem a chave, o app funciona com uma análise de exemplo.
+
+O login é opcional. Sem configuração, o app roda só no modo demonstração. Para ativá-lo:
+
+- E-mail e senha: crie um projeto no [Supabase](https://supabase.com), crie a tabela `leads` com a coluna `dono_email` e preencha `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_KEY` no `.env`.
+- Google e GitHub: crie o arquivo `.streamlit/secrets.toml` com os blocos `[auth]`, `[auth.google]` e `[auth.github]`, seguindo a [documentação do `st.login`](https://docs.streamlit.io/develop/concepts/connections/authentication). O GitHub não usa OpenID Connect, por isso o login passa por um aplicativo do Auth0 com a conexão GitHub ativada.
+
+O `.env` e o `secrets.toml` estão no `.gitignore` e nunca devem ir para o repositório.
 
 ```powershell
 streamlit run app.py
@@ -112,7 +141,7 @@ python -m scripts.gerar_dados_ficticios --limpar
 pytest -v
 ```
 
-São 34 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA e os cálculos do dashboard. Os testes da IA trocam a chamada à API por respostas simuladas, então não gastam cota nem precisam de internet.
+São 48 testes. Eles cobrem o banco de dados (incluindo o desfazer de uma operação que falha no meio), as regras de pontuação com os casos de borda de cada faixa, a integração com a IA, os cálculos do dashboard, a validação de login e a tradução das mensagens de erro, a escolha entre SQLite e Supabase e o filtro de leads por conta. Os testes da IA e do Supabase trocam as chamadas externas por respostas simuladas, então não gastam cota nem precisam de internet.
 
 ## Decisões técnicas
 
@@ -122,15 +151,21 @@ As consultas ao banco usam parâmetros (`?`) em vez de juntar textos, o que impe
 
 A chamada à API do Gemini fica isolada numa função própria. Com isso os testes conseguem substituí-la por uma resposta pronta e cobrir os cenários de erro.
 
-A chave da API fica no arquivo `.env`, que o `.gitignore` mantém fora do repositório. Na versão publicada ela fica nos Secrets do Streamlit Community Cloud.
+As chaves ficam no arquivo `.env` e no `.streamlit/secrets.toml`, que o `.gitignore` mantém fora do repositório. Na versão publicada elas ficam nos Secrets do Streamlit Community Cloud.
+
+Cada lead salvo no Supabase guarda o e-mail da conta dona, e toda consulta filtra por esse e-mail. A tabela tem RLS ativado e só a chave de serviço, que fica no servidor, tem permissão de acesso. O navegador nunca recebe essa chave.
+
+O cookie de sessão guarda apenas o refresh token do Supabase, não a senha. Ao sair, o token é revogado no Supabase.
+
+Os e-mails de confirmação e de recuperação de senha saem de uma conta Gmail criada só para o app, com senha de app, e não de uma conta pessoal.
 
 Os cálculos do dashboard ficam em `src/metricas.py`, separados das telas, para serem testados sem abrir o navegador.
 
 ## O que faltaria para uso em produção
 
-- Login e separação dos dados por cliente.
 - Critérios de pontuação configuráveis por empresa, em vez de fixos no código.
-- Banco de dados em nuvem com backup, já que o SQLite da versão publicada volta ao estado inicial quando o app reinicia.
+- Backup automático do banco, que a camada gratuita do Supabase não oferece.
+- Domínio próprio para os e-mails, no lugar de uma conta Gmail.
 - Camada paga da API do Gemini, porque na camada gratuita o conteúdo enviado pode ser usado pelo Google para melhorar os produtos.
 - Entrada automática de leads por formulário público ou integração com outros sistemas.
 

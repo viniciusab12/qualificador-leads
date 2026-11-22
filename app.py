@@ -69,6 +69,4 @@ if usuario:
 else:
     st.sidebar.caption("Modo demonstração, com dados fictícios.")
 
-st.sidebar.caption("Não digite dados reais: o texto dos leads é enviado à IA do Google.")
-
 pagina.run()
