@@ -116,3 +116,63 @@ def test_csv_sem_leads_tem_so_o_cabecalho():
 
     assert conteudo.strip().startswith("ID;Empresa")
     assert len(conteudo.strip().splitlines()) == 1
+
+
+
+# ---------- Proteção contra fórmulas no CSV (CSV Injection) ----------
+
+import csv  # noqa: E402
+import io  # noqa: E402
+
+import pytest  # noqa: E402
+
+from src.metricas import leads_para_csv, proteger_celula  # noqa: E402
+from src.models import Lead  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "valor",
+    [
+        '=HYPERLINK("http://site-falso.com";"Clique")',
+        "+5511999999999",
+        "-2+3",
+        "@SOMA(A1:A2)",
+        "\t=1+1",
+        "  =1+1",
+    ],
+)
+def test_texto_que_viraria_formula_ganha_apostrofo(valor):
+    assert proteger_celula(valor) == "'" + valor
+
+
+def test_texto_comum_e_numeros_nao_mudam():
+    assert proteger_celula("Padaria Vida") == "Padaria Vida"
+    assert proteger_celula("Email: ana@empresa.com") == "Email: ana@empresa.com"
+    assert proteger_celula("") == ""
+    assert proteger_celula(2500.5) == 2500.5
+    assert proteger_celula(None) is None
+
+
+def test_csv_exportado_nao_tem_formula():
+    lead = Lead(
+        empresa="=HYPERLINK(\"http://site-falso.com\";\"Clique\")",
+        contato="@Ana",
+        segmento="Varejo",
+        necessidade="Loja virtual",
+        descricao="-desconto de 10%",
+        orcamento=8000.0,
+        prazo="Até 1 mês",
+        contato_decisor=True,
+        nota=80,
+        classificacao="Quente",
+        id=7,
+    )
+
+    texto = leads_para_csv([lead]).decode("utf-8-sig")
+    celulas = list(csv.reader(io.StringIO(texto), delimiter=";"))[1]
+
+    assert celulas[0] == "7"                    # ID continua número
+    assert celulas[1].startswith("'=HYPERLINK")
+    assert celulas[2] == "'@Ana"
+    assert celulas[5] == "'-desconto de 10%"
+    assert celulas[6] == "8000,0"               # orçamento continua número

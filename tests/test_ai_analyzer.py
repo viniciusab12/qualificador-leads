@@ -218,3 +218,14 @@ def test_alerta_vazio_e_aceito():
     dados = ai_analyzer.interpretar_resposta(resposta_com(alerta=None))
 
     assert dados["alerta"] == ""
+
+
+def test_aviso_de_limite_personalizado(monkeypatch):
+    monkeypatch.setattr(config, "GEMINI_API_KEY", "chave-de-teste")
+
+    texto, aviso = ai_analyzer.analisar_lead(
+        criar_lead_pontuado(), permitir_ia=False, aviso_limite="Limite diário atingido."
+    )
+
+    assert "demonstração" in texto
+    assert aviso == "Limite diário atingido."

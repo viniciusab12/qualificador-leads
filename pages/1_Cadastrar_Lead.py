@@ -6,6 +6,7 @@ from src.componentes import mostrar_erro, mostrar_selo, texto_seguro_com_linhas
 from src.dados import (
     LIMITE_IA_DEMO,
     ErroBanco,
+    aviso_limite_ia,
     modo_demonstracao,
     pode_usar_ia,
     pontuar,
@@ -92,7 +93,9 @@ if enviado:
         # 2. Análise complementar da IA (não altera a nota)
         permitir_ia = pode_usar_ia()
         with st.spinner("Gerando a análise da IA..."):
-            analise, aviso_ia = analisar_lead(lead, permitir_ia=permitir_ia)
+            analise, aviso_ia = analisar_lead(
+                lead, permitir_ia=permitir_ia, aviso_limite=aviso_limite_ia()
+            )
         if permitir_ia:
             registrar_uso_ia()
         lead.analise_ia = analise

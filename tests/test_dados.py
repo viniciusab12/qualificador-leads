@@ -1,7 +1,21 @@
+import threading
+
 import pytest
 
 from src import dados
 from src.models import Lead
+
+
+@pytest.fixture(autouse=True)
+def contador_novo(monkeypatch):
+    """Cada teste começa com o contador de análises do servidor zerado.
+
+    O mesmo contador é usado por todas as "sessões" de um teste, como no
+    servidor de verdade.
+    """
+    contador = {"trava": threading.Lock(), "dia": None, "usos": {}}
+    monkeypatch.setattr(dados, "_contador_do_servidor", lambda: contador)
+    return contador
 
 
 def lead_exemplo(id_lead, empresa):
@@ -147,7 +161,7 @@ def test_limite_de_analises_com_ia_na_demonstracao(monkeypatch):
     assert dados.pode_usar_ia() is False
 
 
-def test_usuario_logado_nao_tem_limite_de_ia(monkeypatch):
+def test_limite_da_sessao_nao_vale_para_usuario_logado(monkeypatch):
     usuario = {"dono": "ana@empresa.com", "email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
     monkeypatch.setattr(dados, "usuario_atual", lambda: usuario)
     monkeypatch.setattr(dados, "_sessao", lambda: {dados.CHAVE_USO_IA: 100})
@@ -309,3 +323,79 @@ def test_excluir_conta_do_github_nao_mexe_no_login(monkeypatch):
     dados.excluir_conta()
 
     assert chamadas == ["github|1"]
+
+
+
+# ---------- Limites diários da IA, guardados no servidor ----------
+
+HOJE = date(2026, 11, 22)
+AMANHA = date(2026, 11, 23)
+
+
+def usar_ia_ate_o_limite_da_sessao(hoje=HOJE):
+    while dados.pode_usar_ia(hoje):
+        dados.registrar_uso_ia(hoje)
+
+
+def test_nova_sessao_nao_zera_o_limite_diario_da_demonstracao(monkeypatch):
+    # Cada visitante (ou cada F5) é uma sessão nova, com o contador da sessão zerado
+    visitantes = 0
+    while True:
+        sessao_de_visitante(monkeypatch, {})
+        if not dados.pode_usar_ia(HOJE):
+            break
+        usar_ia_ate_o_limite_da_sessao()
+        visitantes += 1
+
+    total = dados._contador_do_servidor()["usos"][dados.CHAVE_DEMO_GLOBAL]
+    assert total == dados.LIMITE_IA_DEMO_POR_DIA
+    assert visitantes == -(-dados.LIMITE_IA_DEMO_POR_DIA // dados.LIMITE_IA_DEMO)  # divisão arredondada para cima
+    assert "acabaram por hoje" in dados.aviso_limite_ia()
+
+
+def test_limite_da_demonstracao_renova_no_dia_seguinte(monkeypatch):
+    for _ in range(dados.LIMITE_IA_DEMO_POR_DIA):
+        sessao_de_visitante(monkeypatch, {})
+        dados.registrar_uso_ia(HOJE)
+
+    sessao_de_visitante(monkeypatch, {})
+    assert dados.pode_usar_ia(HOJE) is False
+    assert dados.pode_usar_ia(AMANHA) is True
+
+
+def test_limite_diario_por_conta(monkeypatch):
+    ana = {"dono": "ana@empresa.com", "email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
+    monkeypatch.setattr(dados, "usuario_atual", lambda: ana)
+    monkeypatch.setattr(dados, "_sessao", dict)  # cada chamada parece uma sessão nova
+
+    for _ in range(dados.LIMITE_IA_CONTA_POR_DIA):
+        assert dados.pode_usar_ia(HOJE) is True
+        dados.registrar_uso_ia(HOJE)
+
+    assert dados.pode_usar_ia(HOJE) is False
+    assert "20 análises com IA por dia" in dados.aviso_limite_ia()
+    assert dados.pode_usar_ia(AMANHA) is True
+
+
+def test_limite_de_uma_conta_nao_afeta_outra(monkeypatch):
+    ana = {"dono": "ana@empresa.com", "email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
+    bruno = {"dono": "github|2", "email": "", "nome": "bruno", "provedor": "github"}
+    monkeypatch.setattr(dados, "_sessao", dict)
+
+    monkeypatch.setattr(dados, "usuario_atual", lambda: ana)
+    for _ in range(dados.LIMITE_IA_CONTA_POR_DIA):
+        dados.registrar_uso_ia(HOJE)
+    assert dados.pode_usar_ia(HOJE) is False
+
+    monkeypatch.setattr(dados, "usuario_atual", lambda: bruno)
+    assert dados.pode_usar_ia(HOJE) is True
+
+
+def test_uso_da_demonstracao_nao_conta_para_as_contas(monkeypatch):
+    for _ in range(dados.LIMITE_IA_DEMO_POR_DIA):
+        sessao_de_visitante(monkeypatch, {})
+        dados.registrar_uso_ia(HOJE)
+
+    ana = {"dono": "ana@empresa.com", "email": "ana@empresa.com", "nome": "Ana", "provedor": "email"}
+    monkeypatch.setattr(dados, "usuario_atual", lambda: ana)
+    assert dados.pode_usar_ia(HOJE) is True

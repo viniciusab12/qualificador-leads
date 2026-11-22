@@ -211,14 +211,15 @@ AVISO_LIMITE_DEMO = (
 )
 
 
-def analisar_lead(lead, permitir_ia=True):
+def analisar_lead(lead, permitir_ia=True, aviso_limite=AVISO_LIMITE_DEMO):
     """Devolve (texto_da_analise, aviso). O aviso é None quando tudo deu certo.
 
     permitir_ia=False usa a análise de exemplo sem chamar a API
-    (por exemplo, quando o visitante atingiu o limite do modo demonstração).
+    (por exemplo, quando um limite de uso foi atingido). aviso_limite é a
+    mensagem mostrada nesse caso.
     """
     if not permitir_ia:
-        return analise_simulada(lead), AVISO_LIMITE_DEMO
+        return analise_simulada(lead), aviso_limite
 
     if not config.GEMINI_API_KEY:
         aviso = "Modo simulado: configure a GEMINI_API_KEY no arquivo .env para usar a IA."

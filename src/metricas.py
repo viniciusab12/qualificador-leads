@@ -112,16 +112,54 @@ COLUNAS_CSV = {
 }
 
 
+# Colunas com texto digitado ou escolhido. Só elas recebem a proteção contra fórmulas;
+# as colunas de número (ID, orçamento, nota) ficam como estão.
+COLUNAS_TEXTO_CSV = [
+    "empresa",
+    "contato",
+    "segmento",
+    "necessidade",
+    "descricao",
+    "prazo",
+    "classificacao",
+    "status",
+    "proximo_contato",
+    "criado_em",
+    "justificativa",
+]
+
+# Caracteres que fazem o Excel, o LibreOffice ou o Google Planilhas tratarem a célula como fórmula
+INICIOS_DE_FORMULA = ("=", "+", "-", "@", "\t", "\r", "\n")
+
+
+def proteger_celula(valor):
+    """Impede que um texto vire fórmula ao abrir o CSV numa planilha (CSV Injection).
+
+    Um lead com a empresa "=HYPERLINK(...)" viraria um link clicável no Excel.
+    Um apóstrofo no começo faz a planilha mostrar o texto como texto.
+    Também confere o primeiro caractere depois de espaços, porque algumas
+    planilhas ignoram espaços no início.
+    """
+    if not isinstance(valor, str) or not valor:
+        return valor
+    if valor.startswith(INICIOS_DE_FORMULA) or valor.lstrip().startswith(INICIOS_DE_FORMULA):
+        return "'" + valor
+    return valor
+
+
 def leads_para_csv(leads):
     """Gera o arquivo CSV dos leads, pronto para abrir no Excel em português.
 
     Usa ponto e vírgula entre as colunas e vírgula nos decimais (padrão do Excel
     no Brasil) e a codificação utf-8-sig, para os acentos aparecerem certos.
+    Os textos passam por proteger_celula, para nenhum deles virar fórmula.
     """
     if leads:
         tabela = pd.DataFrame([asdict(lead) for lead in leads])[list(COLUNAS_CSV)]
     else:
         tabela = pd.DataFrame(columns=list(COLUNAS_CSV))
+    for coluna in COLUNAS_TEXTO_CSV:
+        tabela[coluna] = tabela[coluna].map(proteger_celula)
     tabela["contato_decisor"] = tabela["contato_decisor"].map({True: "Sim", False: "Não"})
     tabela = tabela.rename(columns=COLUNAS_CSV)
     return tabela.to_csv(index=False, sep=";", decimal=",").encode("utf-8-sig")

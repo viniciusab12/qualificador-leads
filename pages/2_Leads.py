@@ -11,6 +11,7 @@ from src.dados import (
     ErroBanco,
     adicionar_anotacao,
     atualizar_campos,
+    aviso_limite_ia,
     atualizar_status,
     buscar_lead,
     campos_da_pontuacao,
@@ -294,7 +295,9 @@ with st.expander("Editar dados do lead"):
             if nova_analise:
                 permitir_ia = pode_usar_ia()
                 with st.spinner("Gerando a análise da IA..."):
-                    analise, aviso_ia = analisar_lead(editado, permitir_ia=permitir_ia)
+                    analise, aviso_ia = analisar_lead(
+                        editado, permitir_ia=permitir_ia, aviso_limite=aviso_limite_ia()
+                    )
                 if permitir_ia:
                     registrar_uso_ia()
                 if analise:

@@ -6,8 +6,10 @@ Usuário logado: os próprios leads e regras, no Supabase.
 As páginas usam só este módulo, sem saber qual banco está por trás.
 """
 
+import threading
 from dataclasses import replace
 from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 
@@ -18,8 +20,18 @@ from src.auth import usuario_atual
 from src.models import STATUS_EM_ABERTO, STATUS_FUNIL
 from src.scoring import calcular_pontuacao
 
-# Quantas análises reais do Gemini cada visitante pode pedir no modo demonstração
+# ---------- Limites de uso da IA (Gemini) ----------
+# Três camadas, para evitar abuso e custo:
+# 1. cada sessão do modo demonstração: LIMITE_IA_DEMO análises
+# 2. todos os visitantes do modo demonstração juntos: LIMITE_IA_DEMO_POR_DIA por dia
+# 3. cada conta logada: LIMITE_IA_CONTA_POR_DIA por dia
+# Os limites 2 e 3 ficam na memória do servidor, compartilhada por todas as sessões:
+# apertar F5 ou abrir uma janela anônima não zera a contagem.
 LIMITE_IA_DEMO = 3
+LIMITE_IA_DEMO_POR_DIA = 30
+LIMITE_IA_CONTA_POR_DIA = 20
+FUSO = ZoneInfo("America/Sao_Paulo")
+CHAVE_DEMO_GLOBAL = "__demonstracao__"  # nome do contador que soma todos os visitantes
 
 # Tamanho máximo de uma anotação
 MAXIMO_ANOTACAO = 500
@@ -149,18 +161,81 @@ def _demo_salvar_criterios(config):
     return nova_versao
 
 
-def pode_usar_ia():
-    """Logado: sempre. Modo demonstração: até LIMITE_IA_DEMO análises por visitante."""
-    if not modo_demonstracao():
-        return True
-    return _sessao().get(CHAVE_USO_IA, 0) < LIMITE_IA_DEMO
+@st.cache_resource
+def _contador_do_servidor():
+    """Contador de análises por dia, um só para todas as sessões do app.
+
+    st.cache_resource cria o dicionário uma vez e entrega o mesmo objeto a
+    todas as sessões. Ele zera quando o app reinicia. A trava (Lock) impede
+    que duas sessões alterem o contador ao mesmo tempo.
+    """
+    return {"trava": threading.Lock(), "dia": None, "usos": {}}
 
 
-def registrar_uso_ia():
-    """Conta uma análise real feita no modo demonstração."""
+def _hoje():
+    return datetime.now(FUSO).date()
+
+
+def _usos_de_hoje(contador, hoje):
+    """Devolve o dicionário de usos do dia, zerando quando o dia muda."""
+    if contador["dia"] != hoje:
+        contador["dia"] = hoje
+        contador["usos"] = {}
+    return contador["usos"]
+
+
+def _chave_e_limite_diario():
+    dono = email_logado()
+    if dono is None:
+        return CHAVE_DEMO_GLOBAL, LIMITE_IA_DEMO_POR_DIA
+    return dono, LIMITE_IA_CONTA_POR_DIA
+
+
+def _usos_hoje_da_chave(hoje=None):
+    chave, limite = _chave_e_limite_diario()
+    contador = _contador_do_servidor()
+    with contador["trava"]:
+        usos = _usos_de_hoje(contador, hoje or _hoje())
+        return usos.get(chave, 0), limite
+
+
+def pode_usar_ia(hoje=None):
+    """True se ainda dá para pedir uma análise real ao Gemini."""
+    if modo_demonstracao() and _sessao().get(CHAVE_USO_IA, 0) >= LIMITE_IA_DEMO:
+        return False
+    usados, limite = _usos_hoje_da_chave(hoje)
+    return usados < limite
+
+
+def registrar_uso_ia(hoje=None):
+    """Conta uma análise real: na sessão (modo demonstração) e no contador do servidor."""
     if modo_demonstracao():
         sessao = _sessao()
         sessao[CHAVE_USO_IA] = sessao.get(CHAVE_USO_IA, 0) + 1
+
+    chave, _ = _chave_e_limite_diario()
+    contador = _contador_do_servidor()
+    with contador["trava"]:
+        usos = _usos_de_hoje(contador, hoje or _hoje())
+        usos[chave] = usos.get(chave, 0) + 1
+
+
+def aviso_limite_ia(hoje=None):
+    """Explica por que a análise real não foi feita, conforme o limite atingido."""
+    if modo_demonstracao():
+        if _sessao().get(CHAVE_USO_IA, 0) >= LIMITE_IA_DEMO:
+            return (
+                "Você já usou as análises com IA do modo demonstração. Esta é uma análise de exemplo. "
+                "Entre na sua conta para usar a IA."
+            )
+        return (
+            "As análises com IA do modo demonstração acabaram por hoje. Esta é uma análise de exemplo. "
+            "Entre na sua conta para usar a IA."
+        )
+    return (
+        f"Você atingiu o limite de {LIMITE_IA_CONTA_POR_DIA} análises com IA por dia. "
+        "Esta é uma análise de exemplo. O limite renova amanhã."
+    )
 
 
 # ---------- Escolha do banco ----------
